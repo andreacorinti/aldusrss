@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
+import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon } from "lucide-react";
 import { fetchFeedXML, parseFeed } from "./lib/rss";
 import { assignSection, composeArticles } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
@@ -13,6 +13,8 @@ import {
   removeSourceCache,
   loadHiddenSections,
   saveHiddenSections,
+  loadDarkMode,
+  saveDarkMode,
 } from "./lib/storage";
 
 const FONTS = `
@@ -43,6 +45,45 @@ function buildSectionMeta(id) {
   if (id === FRONT_PAGE_ID) return { id: FRONT_PAGE_ID, label: "Prima Pagina", templateId: DEFAULT_TEMPLATE_ID };
   return SECTIONS[id] || { id, label: id, templateId: DEFAULT_TEMPLATE_ID };
 }
+
+function resolveTemplate(template, dark) {
+  if (!dark || !template.dark) return template;
+  return { ...template, ...template.dark };
+}
+
+// Colori dell'interfaccia (non del "foglio" editoriale, che viene da templates.js):
+// masthead della schermata Feed/Impostazioni, card, toggle, sfondo del telefono.
+const CHROME_LIGHT = {
+  pageBg: "#DDD8CB",
+  bezel: "#16140F",
+  screenBg: "#EDE8DC",
+  ink: "#211D19",
+  card: "#FFFFFFAA",
+  cardBorder: "#21201C1A",
+  divider: "#21201C33",
+  chipBg: "#21201C14",
+  navBg: "#FBF9F3",
+  navBorder: "#00000014",
+  success: "#2E6F6A",
+  warning: "#C97A2B",
+  danger: "#A31E22",
+};
+
+const CHROME_DARK = {
+  pageBg: "#0C0B09",
+  bezel: "#3A3630",
+  screenBg: "#1C1815",
+  ink: "#EDE6D8",
+  card: "#FFFFFF12",
+  cardBorder: "#FFFFFF1F",
+  divider: "#FFFFFF2E",
+  chipBg: "#FFFFFF1A",
+  navBg: "#15120F",
+  navBorder: "#FFFFFF14",
+  success: "#4FA79E",
+  warning: "#D89355",
+  danger: "#E5636A",
+};
 
 function StatusBar({ ink }) {
   return (
@@ -223,7 +264,7 @@ function ArticleView({ view, onBack }) {
   );
 }
 
-function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightChange }) {
+function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightChange, chrome }) {
   const [adding, setAdding] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [addError, setAddError] = useState("");
@@ -253,8 +294,8 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
 
   return (
     <div className="px-5 pt-4 pb-8">
-      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: "#211D19" }}>I tuoi feed</h2>
-      <p className="text-[12.5px] mt-1 mb-4" style={{ color: "#211D19", opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
+      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>I tuoi feed</h2>
+      <p className="text-[12.5px] mt-1 mb-4" style={{ color: chrome.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
         Ogni fonte alimenta le sezioni del tuo giornale. Il peso decide quanto conta in "Prima Pagina".
       </p>
       <div className="space-y-2.5">
@@ -262,30 +303,30 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
           const s = sources[f.id];
           const label = s?.feedMeta?.title || f.url;
           return (
-            <div key={f.id} className="flex items-center justify-between p-3 rounded-lg gap-2" style={{ backgroundColor: "#FFFFFFAA", border: "1px solid #21201C1A" }}>
+            <div key={f.id} className="flex items-center justify-between p-3 rounded-lg gap-2" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 shrink-0 rounded-md flex items-center justify-center text-[13px] font-bold" style={{ backgroundColor: "#21201C14", color: "#211D19", fontFamily: "'Fraunces', serif" }}>
+                <div className="w-9 h-9 shrink-0 rounded-md flex items-center justify-center text-[13px] font-bold" style={{ backgroundColor: chrome.chipBg, color: chrome.ink, fontFamily: "'Fraunces', serif" }}>
                   {label[0]?.toUpperCase() || "?"}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[14px] font-medium truncate" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>{label}</p>
+                  <p className="text-[14px] font-medium truncate" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{label}</p>
                   {s?.status === "loading" && (
-                    <span className="text-[11px] flex items-center gap-1" style={{ color: "#211D1988" }}>
+                    <span className="text-[11px] flex items-center gap-1" style={{ color: `${chrome.ink}88` }}>
                       <Loader2 size={11} className="animate-spin" /> caricamento…
                     </span>
                   )}
                   {s?.status === "error" && (
-                    <span className="text-[11px] flex items-center gap-1" style={{ color: "#A31E22" }}>
+                    <span className="text-[11px] flex items-center gap-1" style={{ color: chrome.danger }}>
                       <AlertTriangle size={11} /> {s.errorMessage || "errore di caricamento"}
                     </span>
                   )}
                   {s?.status === "stale" && (
-                    <span className="text-[11px] flex items-center gap-1" style={{ color: "#C97A2B" }}>
+                    <span className="text-[11px] flex items-center gap-1" style={{ color: chrome.warning }}>
                       <AlertTriangle size={11} /> non raggiungibile, mostro l'ultima copia
                     </span>
                   )}
                   {s?.status === "ready" && (
-                    <p className="text-[11.5px] truncate" style={{ color: "#211D19", opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{f.url}</p>
+                    <p className="text-[11.5px] truncate" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{f.url}</p>
                   )}
                 </div>
               </div>
@@ -294,19 +335,19 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
                   onClick={() => onWeightChange(f.id)}
                   title={`Peso: ${weightLabel(f.weight)} (tocca per cambiare)`}
                   className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                  style={{ backgroundColor: "#21201C14", color: "#211D19" }}
+                  style={{ backgroundColor: chrome.chipBg, color: chrome.ink }}
                 >
                   {weightLabel(f.weight)[0]}
                 </button>
                 <button
                   onClick={() => onToggle(f.id)}
                   className="w-9 h-5 rounded-full relative transition-colors"
-                  style={{ backgroundColor: f.enabled ? "#2E6F6A" : "#21201C33" }}
+                  style={{ backgroundColor: f.enabled ? chrome.success : chrome.divider }}
                 >
                   <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: f.enabled ? "18px" : "2px" }} />
                 </button>
                 <button onClick={() => onRemove(f.id)} className="p-1.5" aria-label="Rimuovi feed">
-                  <X size={15} color="#211D1988" />
+                  <X size={15} color={`${chrome.ink}88`} />
                 </button>
               </div>
             </div>
@@ -314,7 +355,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
         })}
 
         {adding ? (
-          <form onSubmit={handleSubmit} className="p-3 rounded-lg border border-dashed" style={{ borderColor: "#21201C33" }}>
+          <form onSubmit={handleSubmit} className="p-3 rounded-lg border border-dashed" style={{ borderColor: chrome.divider }}>
             <input
               autoFocus
               type="text"
@@ -322,15 +363,15 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="https://esempio.it/feed.xml"
               className="w-full text-[13px] px-2.5 py-2 rounded-md outline-none"
-              style={{ backgroundColor: "#FFFFFF", border: "1px solid #21201C33", fontFamily: "'Inter', sans-serif" }}
+              style={{ backgroundColor: chrome.card, color: chrome.ink, border: `1px solid ${chrome.divider}` }}
             />
-            {addError && <p className="mt-1.5 text-[11.5px]" style={{ color: "#A31E22" }}>{addError}</p>}
+            {addError && <p className="mt-1.5 text-[11.5px]" style={{ color: chrome.danger }}>{addError}</p>}
             <div className="mt-2 flex gap-2">
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 py-2 rounded-md text-[12.5px] font-medium text-white flex items-center justify-center gap-1.5"
-                style={{ backgroundColor: "#211D19", opacity: submitting ? 0.6 : 1 }}
+                className="flex-1 py-2 rounded-md text-[12.5px] font-medium flex items-center justify-center gap-1.5"
+                style={{ backgroundColor: chrome.ink, color: chrome.screenBg, opacity: submitting ? 0.6 : 1 }}
               >
                 {submitting && <Loader2 size={13} className="animate-spin" />}
                 Aggiungi
@@ -339,7 +380,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
                 type="button"
                 onClick={() => { setAdding(false); setAddError(""); setUrlInput(""); }}
                 className="px-3 py-2 rounded-md text-[12.5px] font-medium"
-                style={{ color: "#211D19AA", border: "1px solid #21201C33" }}
+                style={{ color: `${chrome.ink}AA`, border: `1px solid ${chrome.divider}` }}
               >
                 Annulla
               </button>
@@ -349,7 +390,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
           <button
             onClick={() => setAdding(true)}
             className="w-full mt-1 py-3 rounded-lg text-[13px] font-medium border border-dashed flex items-center justify-center gap-1.5"
-            style={{ color: "#211D19AA", borderColor: "#21201C33", fontFamily: "'Inter', sans-serif" }}
+            style={{ color: `${chrome.ink}AA`, borderColor: chrome.divider, fontFamily: "'Inter', sans-serif" }}
           >
             <Plus size={14} /> Aggiungi un feed RSS
           </button>
@@ -359,25 +400,42 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
   );
 }
 
-function SettingsScreen({ hiddenSections, onToggleSection }) {
+function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDarkMode, chrome }) {
   return (
     <div className="px-5 pt-4 pb-8">
-      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: "#211D19" }}>Impostazioni</h2>
-      <div className="mt-4 p-4 rounded-lg space-y-3" style={{ backgroundColor: "#FFFFFFAA", border: "1px solid #21201C1A" }}>
+      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>Impostazioni</h2>
+
+      <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Moon size={15} color={chrome.ink} />
+            <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>Modalità notte</p>
+          </div>
+          <button
+            onClick={onToggleDarkMode}
+            className="w-9 h-5 rounded-full relative shrink-0"
+            style={{ backgroundColor: darkMode ? chrome.success : chrome.divider }}
+          >
+            <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: darkMode ? "18px" : "2px" }} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 p-4 rounded-lg space-y-3" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
         <div>
-          <p className="text-[14px] font-medium" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>Sezioni visibili</p>
-          <p className="text-[12px] mt-0.5" style={{ color: "#211D19", opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>Nascondi le sezioni che non ti interessano</p>
+          <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>Sezioni visibili</p>
+          <p className="text-[12px] mt-0.5" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>Nascondi le sezioni che non ti interessano</p>
         </div>
         {SECTION_ORDER.map((id) => {
           const section = SECTIONS[id];
           const visible = !hiddenSections.includes(id);
           return (
-            <div key={id} className="flex items-center justify-between text-[13px]" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>
+            <div key={id} className="flex items-center justify-between text-[13px]" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>
               {section.label}
               <button
                 onClick={() => onToggleSection(id)}
                 className="w-9 h-5 rounded-full relative shrink-0"
-                style={{ backgroundColor: visible ? "#2E6F6A" : "#21201C33" }}
+                style={{ backgroundColor: visible ? chrome.success : chrome.divider }}
               >
                 <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: visible ? "18px" : "2px" }} />
               </button>
@@ -385,10 +443,23 @@ function SettingsScreen({ hiddenSections, onToggleSection }) {
           );
         })}
       </div>
-      <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: "#FFFFFFAA", border: "1px solid #21201C1A" }}>
-        <p className="text-[12.5px]" style={{ color: "#211D19", opacity: 0.7, fontFamily: "'Inter', sans-serif" }}>
+
+      <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
+        <p className="text-[12.5px]" style={{ color: chrome.ink, opacity: 0.7, fontFamily: "'Inter', sans-serif" }}>
           Nessun contatore di "non letti": il giornale si aggiorna da solo, aprilo quando vuoi tu.
         </p>
+      </div>
+
+      <div className="mt-6 text-center">
+        <a
+          href="https://andreacorinti.com"
+          target="_blank"
+          rel="noreferrer"
+          className="text-[11px]"
+          style={{ color: chrome.ink, opacity: 0.4, fontFamily: "'Inter', sans-serif" }}
+        >
+          Realizzato da Andrea Corinti
+        </a>
       </div>
     </div>
   );
@@ -398,6 +469,7 @@ export default function App() {
   const [feedList, setFeedList] = useState(() => loadFeedList());
   const [sources, setSources] = useState({});
   const [hiddenSections, setHiddenSections] = useState(() => loadHiddenSections());
+  const [darkMode, setDarkMode] = useState(() => loadDarkMode());
   const [tab, setTab] = useState("front");
   const [activeSection, setActiveSection] = useState(FRONT_PAGE_ID);
   const [article, setArticle] = useState(false);
@@ -483,6 +555,16 @@ export default function App() {
     });
   }, []);
 
+  const toggleDarkMode = useCallback(() => {
+    setDarkMode((prev) => {
+      const next = !prev;
+      saveDarkMode(next);
+      return next;
+    });
+  }, []);
+
+  const chrome = darkMode ? CHROME_DARK : CHROME_LIGHT;
+
   const anyReady = Object.values(sources).some((s) => s && (s.status === "ready" || s.status === "stale"));
 
   const allArticles = useMemo(() => {
@@ -511,13 +593,15 @@ export default function App() {
   }, [allArticles, hiddenSections]);
 
   const sectionTabs = useMemo(() => {
-    const tabs = [{ id: FRONT_PAGE_ID, label: "Prima Pagina", accent: TEMPLATES[DEFAULT_TEMPLATE_ID].accent }];
+    const frontTemplate = resolveTemplate(TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
+    const tabs = [{ id: FRONT_PAGE_ID, label: "Prima Pagina", accent: frontTemplate.accent }];
     for (const id of visibleSections) {
       const meta = SECTIONS[id];
-      tabs.push({ id, label: meta.label, accent: TEMPLATES[meta.templateId]?.accent || TEMPLATES[DEFAULT_TEMPLATE_ID].accent });
+      const template = resolveTemplate(TEMPLATES[meta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
+      tabs.push({ id, label: meta.label, accent: template.accent });
     }
     return tabs;
-  }, [visibleSections]);
+  }, [visibleSections, darkMode]);
 
   useEffect(() => {
     if (activeSection !== FRONT_PAGE_ID && !visibleSections.includes(activeSection)) {
@@ -531,7 +615,7 @@ export default function App() {
     const articles = isFront ? allArticles : allArticles.filter((a) => a.section === activeSection);
     const composed = composeArticles(articles, sourceWeights);
     const sectionMeta = buildSectionMeta(activeSection);
-    const template = TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID];
+    const template = resolveTemplate(TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
     return {
       id: sectionMeta.id,
       label: sectionMeta.label,
@@ -544,20 +628,20 @@ export default function App() {
       secondary: composed.secondary.map((a) => mapArticle(a, [500, 400])),
       brief: composed.brief.map((a) => ({ title: a.title, tag: a.sourceName || "", link: a.link })),
     };
-  }, [activeSection, allArticles, sourceWeights]);
+  }, [activeSection, allArticles, sourceWeights, darkMode]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-8" style={{ backgroundColor: "#DDD8CB", fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen flex items-center justify-center py-8" style={{ backgroundColor: chrome.pageBg, fontFamily: "'Inter', sans-serif" }}>
       <style>{FONTS}</style>
       <div
         className="w-[375px] h-[780px] rounded-[36px] overflow-hidden shadow-2xl flex flex-col"
-        style={{ backgroundColor: anyReady ? currentView.paper : "#EFE9DC", border: "8px solid #16140F" }}
+        style={{ backgroundColor: anyReady ? currentView.paper : chrome.screenBg, border: `8px solid ${chrome.bezel}` }}
       >
-        <StatusBar ink={anyReady ? currentView.ink : "#211D19"} />
+        <StatusBar ink={anyReady ? currentView.ink : chrome.ink} />
 
         {tab === "front" && !anyReady && (
           <div className="flex-1 flex items-center justify-center px-8 text-center">
-            <p className="text-[13px]" style={{ color: "#211D19", opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
+            <p className="text-[13px]" style={{ color: chrome.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
               {feedList.length === 0
                 ? "Nessun feed configurato. Aggiungine uno dalla scheda \"Feed\"."
                 : "Caricamento del giornale in corso…"}
@@ -598,19 +682,19 @@ export default function App() {
         )}
 
         {tab === "feeds" && (
-          <div className="flex-1 overflow-y-auto" style={{ backgroundColor: "#EDE8DC" }}>
-            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onWeightChange={changeWeight} />
+          <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
+            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onWeightChange={changeWeight} chrome={chrome} />
           </div>
         )}
 
         {tab === "settings" && (
-          <div className="flex-1 overflow-y-auto" style={{ backgroundColor: "#EDE8DC" }}>
-            <SettingsScreen hiddenSections={hiddenSections} onToggleSection={toggleSectionHidden} />
+          <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
+            <SettingsScreen hiddenSections={hiddenSections} onToggleSection={toggleSectionHidden} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} chrome={chrome} />
           </div>
         )}
 
         {/* Bottom nav */}
-        <div className="flex items-center justify-around py-3 border-t" style={{ borderColor: "#00000014", backgroundColor: "#FBF9F3" }}>
+        <div className="flex items-center justify-around py-3 border-t" style={{ borderColor: chrome.navBorder, backgroundColor: chrome.navBg }}>
           {[
             { id: "front", label: "Prima pagina", icon: Newspaper },
             { id: "feeds", label: "Feed", icon: Rss },
@@ -624,8 +708,8 @@ export default function App() {
               }}
               className="flex flex-col items-center gap-0.5"
             >
-              <Icon size={19} color={tab === id ? "#211D19" : "#211D1966"} />
-              <span className="text-[9.5px]" style={{ color: tab === id ? "#211D19" : "#211D1966" }}>{label}</span>
+              <Icon size={19} color={tab === id ? chrome.ink : `${chrome.ink}66`} />
+              <span className="text-[9.5px]" style={{ color: tab === id ? chrome.ink : `${chrome.ink}66` }}>{label}</span>
             </button>
           ))}
         </div>

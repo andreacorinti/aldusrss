@@ -1,6 +1,7 @@
 const FEEDS_KEY = "aldusrss.feeds";
 const CACHE_KEY = "aldusrss.cache";
 const HIDDEN_SECTIONS_KEY = "aldusrss.hiddenSections";
+const DARK_MODE_KEY = "aldusrss.darkMode";
 
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
@@ -73,6 +74,30 @@ export function loadHiddenSections() {
 export function saveHiddenSections(hiddenIds) {
   try {
     localStorage.setItem(HIDDEN_SECTIONS_KEY, JSON.stringify(hiddenIds));
+  } catch {
+    // ignora
+  }
+}
+
+// Rispetta la preferenza di sistema finché l'utente non sceglie esplicitamente,
+// poi ricorda la scelta.
+export function loadDarkMode() {
+  try {
+    const raw = localStorage.getItem(DARK_MODE_KEY);
+    if (raw !== null) return raw === "true";
+  } catch {
+    // ignora
+  }
+  try {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch {
+    return false;
+  }
+}
+
+export function saveDarkMode(value) {
+  try {
+    localStorage.setItem(DARK_MODE_KEY, String(value));
   } catch {
     // ignora
   }
