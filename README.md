@@ -4,7 +4,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 > Il nome è un omaggio ad **Aldo Manuzio**, lo stampatore veneziano che a fine '400 inventò il corsivo tipografico e il libro tascabile (l'*enchiridion*), portando cura editoriale e leggibilità in ogni pagina che usciva dalla sua Aldine Press. Lo stesso principio applicato qui: ogni sezione del tuo giornale merita un'impaginazione pensata per lei, non un template unico appiattito su tutto.
 
-> **Stato del progetto:** prototipo web (React) con parsing reale dei feed RSS/Atom, aggregazione multi-fonte e classificazione automatica in sezioni. Non è ancora un'app Android — vedi [Roadmap](#roadmap).
+> **Stato del progetto:** prototipo web (React) con parsing reale dei feed RSS/Atom, aggregazione multi-fonte e classificazione automatica in sezioni. Non è ancora un'app installabile su telefono/desktop — vedi [Roadmap](#roadmap).
 
 ## Demo
 
@@ -37,7 +37,7 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 
 ## Limiti noti
 
-- **Proxy CORS**: molti feed non inviano header `Access-Control-Allow-Origin`, quindi il browser non può scaricarli direttamente. Il prototipo prova prima il fetch diretto e, se fallisce, ricade su una catena di proxy CORS pubblici (con timeout per tentativo, così uno "appeso" non blocca gli altri) — un workaround client-side best-effort, non un'infrastruttura nostra. L'elenco è isolato in `src/lib/rss.js` ed è facile da estendere. Il problema sparirà passando a un'app nativa (fetch senza restrizioni CORS).
+- **Proxy CORS**: molti feed non inviano header `Access-Control-Allow-Origin`, quindi il browser non può scaricarli direttamente. Il prototipo prova prima il fetch diretto e, se fallisce, ricade su una catena di proxy CORS pubblici (con timeout per tentativo, così uno "appeso" non blocca gli altri) — un workaround client-side best-effort, non un'infrastruttura nostra. L'elenco è isolato in `src/lib/rss.js` ed è facile da estendere. Il problema si riduce molto passando a Capacitor/Tauri: restano comunque un motore web, ma senza le restrizioni CORS del browser sandboxato su un dominio pubblico.
 - **Autodiscovery del feed da un sito**: stesso meccanismo e stessi limiti del punto sopra, aggravati dal fatto che una homepage pesa in genere molto più di un feed XML (verificato: 1MB+ per diverse testate) — i proxy CORS pubblici gratuiti spesso rifiutano payload di quella dimensione. Funziona in modo affidabile quando il sito invia header CORS permissivi anche sulla homepage (raro) o quando la pagina è leggera; altrimenti va ancora incollato il link diretto al feed.
 - **Corpo articolo**: molti feed pubblicano solo un riassunto, non il testo integrale. La vista articolo mostra quello che il feed fornisce, con un link "Leggi l'articolo originale" verso la fonte.
 - **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi.
@@ -60,13 +60,14 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso fonte)
 - [ ] Altre fonti EN di test e altre lingue oltre IT/EN (interfaccia e contenuti)
 - [ ] Motore di ricerca feed più ampio (oltre l'autodiscovery da un sito già noto) — richiederebbe un servizio esterno terzo, da valutare con calma
-- [ ] App mobile (Flutter o React Native) con lettura offline
-- [ ] Build APK distribuita via GitHub Releases / F-Droid
+- [ ] App mobile Android/iOS via **Capacitor**, con lettura offline
+- [ ] App desktop Windows/Linux/macOS via **Tauri**
+- [ ] Build APK/eseguibili distribuiti via GitHub Releases / F-Droid
 
 ## Stack
 
 - Prototipo: React + Vite + Tailwind CSS
-- App finale (da definire): probabilmente Flutter, per avere Android/iOS dallo stesso codice
+- App finale: lo stesso codice React/JS, incapsulato con **Capacitor** per Android/iOS e **Tauri** per Windows/Linux/macOS — scelto rispetto a una riscrittura nativa (Flutter) o React Native perché riusa quasi interamente `src/lib/*.js` (parsing feed, classificazione, storage, i18n: già puro JS senza dipendenze da React/DOM) e perché Tauri ha un ottimo supporto Linux, punto debole di React Native. Vedi la discussione nella issue [#3](https://github.com/andreacorinti/aldusrss/issues/3).
 
 ## Contribuire
 
