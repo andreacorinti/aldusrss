@@ -43,6 +43,8 @@ Compila il sito, sincronizza la cartella `android/` e genera un APK di debug in 
 
 ## Idea di fondo
 
+I social network si sono progressivamente sostituiti all'RSS come principale via di accesso alle notizie: l'utente resta dentro un ecosistema chiuso (anteprime, riassunti, feed algoritmico), l'editore perde il controllo del proprio pubblico e gran parte del traffico diretto al sito. AldusRSS è un tentativo deliberato di tornare a un sistema più vecchio — l'RSS — che invece porta traffico reale alle testate: ogni articolo linka all'originale, "Leggi l'articolo originale" apre il sito della fonte, non una copia interna. L'obiettivo non è sostituirsi ai giornali né trattenere l'attenzione al posto loro, ma restituire centralità a chi le notizie le scrive — lontano dalla logica delle piattaforme chiuse che redistribuiscono poco o nulla a chi produce l'informazione.
+
 I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fonti con lo stesso template a card, oppure le tengono separate come inbox distinte da svuotare. AldusRSS prova un'idea diversa: comportarsi come un giornale vero, che pesca da più testate e le organizza per argomento invece che per fonte. Ogni articolo viene classificato in una sezione (in base alle categorie native del feed, quando presenti, altrimenti al titolo) e ogni sezione ha una propria identità editoriale. In "Prima Pagina" gli articoli di tutte le sezioni vengono ordinati per recency, pesata da quanto l'utente considera importante ciascuna fonte (impostabile in "Feed") — non è un vero giudizio editoriale su cosa sia importante, solo un'approssimazione onesta e personalizzabile.
 
 ## Limiti noti
@@ -76,6 +78,10 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [ ] Motore di ricerca feed più ampio (oltre l'autodiscovery da un sito già noto) — richiederebbe un servizio esterno terzo, da valutare con calma
 - [ ] App desktop Windows/Linux/macOS via **Tauri** — dopo Android
 - [ ] iOS — dopo Android
+
+## Privacy e permessi
+
+L'app Android chiede un solo permesso: **`INTERNET`**, indispensabile per scaricare i feed. Nient'altro — niente posizione, contatti, storage, fotocamera, microfono, notifiche push. (Il manifest elenca anche `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`: non è un permesso concesso dall'utente ma un meccanismo interno di sicurezza che Android genera automaticamente per le app che registrano ricevitori di broadcast dinamici — non ha impatto sulla privacy.) Nessun tracciamento, nessun account, nessun server nostro: i dati (feed sottoscritti, preferenze) restano solo sul dispositivo.
 
 ## Stack
 
