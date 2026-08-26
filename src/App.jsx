@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, GripVertical } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles } from "./lib/classify";
@@ -25,6 +26,13 @@ import {
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500;1,9..144,700&family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
 `;
+
+// Nel browser (demo) l'app disegna la propria cornice "telefono" (bordo
+// arrotondato, status bar finta) per mostrare il layout senza uscire dal
+// desktop. Dentro l'app Android/iOS vera è già a schermo intero su un
+// telefono reale: quella cornice andrebbe a creare un "telefono nel
+// telefono" — va tolta, il contenuto occupa tutto lo schermo.
+const IS_NATIVE = Capacitor.isNativePlatform();
 
 const WEIGHT_LEVELS = [
   { value: 0.5, labelKey: "weightLow" },
@@ -798,14 +806,19 @@ export default function App() {
     };
   }, [activeSection, allArticles, sourceWeights, darkMode, lang]);
 
+  const paperColor = anyReady ? currentView.paper : chrome.screenBg;
+
   return (
-    <div className="min-h-screen flex items-center justify-center py-8" style={{ backgroundColor: chrome.pageBg, fontFamily: "'Inter', sans-serif" }}>
+    <div
+      className={IS_NATIVE ? "h-screen flex flex-col overflow-hidden" : "min-h-screen flex items-center justify-center py-8"}
+      style={{ backgroundColor: IS_NATIVE ? paperColor : chrome.pageBg, fontFamily: "'Inter', sans-serif" }}
+    >
       <style>{FONTS}</style>
       <div
-        className="w-[375px] h-[780px] rounded-[36px] overflow-hidden shadow-2xl flex flex-col"
-        style={{ backgroundColor: anyReady ? currentView.paper : chrome.screenBg, border: `8px solid ${chrome.bezel}` }}
+        className={IS_NATIVE ? "flex-1 min-h-0 flex flex-col overflow-hidden" : "w-[375px] h-[780px] rounded-[36px] overflow-hidden shadow-2xl flex flex-col"}
+        style={IS_NATIVE ? { backgroundColor: paperColor } : { backgroundColor: paperColor, border: `8px solid ${chrome.bezel}` }}
       >
-        <StatusBar ink={anyReady ? currentView.ink : chrome.ink} />
+        {!IS_NATIVE && <StatusBar ink={anyReady ? currentView.ink : chrome.ink} />}
 
         {tab === "front" && !anyReady && (
           <div className="flex-1 flex items-center justify-center px-8 text-center">
