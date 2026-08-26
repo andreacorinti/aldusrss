@@ -28,4 +28,13 @@ export const TEMPLATES = {
     mastheadStyle: { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, letterSpacing: "0.03em", textTransform: "uppercase" },
     headlineStyle: { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 },
   },
+  rivista: {
+    id: "rivista",
+    label: "Rivista",
+    paper: "#F0E6DE",
+    ink: "#2A1E1B",
+    accent: "#8B3F6B",
+    mastheadStyle: { fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 400, letterSpacing: "0.01em" },
+    headlineStyle: { fontFamily: "'Fraunces', serif", fontWeight: 500, fontStyle: "italic" },
+  },
 };

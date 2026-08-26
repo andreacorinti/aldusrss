@@ -1,10 +1,15 @@
 const FEEDS_KEY = "aldusrss.feeds";
 const CACHE_KEY = "aldusrss.cache";
+const HIDDEN_SECTIONS_KEY = "aldusrss.hiddenSections";
 
 export const DEFAULT_FEEDS = [
-  { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true },
-  { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true },
-  { id: "gazzetta", url: "https://www.gazzetta.it/rss/home.xml", enabled: true },
+  { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
+  { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1 },
+  { id: "gazzetta", url: "https://www.gazzetta.it/rss/home.xml", enabled: true, weight: 1 },
+  // Fonte in inglese di test, per verificare l'aggregazione multilingua: il
+  // classico feed pubblico di AP (apnews.com/apf-topnews) non risponde più
+  // (redirect morto), BBC News è affidabile e porta categorie utilizzabili.
+  { id: "bbc", url: "https://feeds.bbci.co.uk/news/rss.xml", enabled: true, weight: 1 },
 ];
 
 export function loadFeedList() {
@@ -50,6 +55,24 @@ export function removeSourceCache(id) {
     const cache = loadCache();
     delete cache[id];
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignora
+  }
+}
+
+export function loadHiddenSections() {
+  try {
+    const raw = localStorage.getItem(HIDDEN_SECTIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveHiddenSections(hiddenIds) {
+  try {
+    localStorage.setItem(HIDDEN_SECTIONS_KEY, JSON.stringify(hiddenIds));
   } catch {
     // ignora
   }

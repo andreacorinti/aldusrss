@@ -1,18 +1,22 @@
 # AldusRSS
 
-Un lettore RSS che impagina automaticamente ogni fonte come una vera testata: masthead, tipografia e griglia cambiano in base al feed, invece del solito elenco di card uniformi.
+Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutte le fonti a cui sei iscritto, li smista in sezioni tematiche (Sport, Tecnologia, Cultura...) e impagina ogni sezione con una propria identità editoriale — masthead, tipografia, colori — invece del solito elenco di card uniformi.
 
-> Il nome è un omaggio ad **Aldo Manuzio**, lo stampatore veneziano che a fine '400 inventò il corsivo tipografico e il libro tascabile (l'*enchiridion*), portando cura editoriale e leggibilità in ogni pagina che usciva dalla sua Aldine Press. Lo stesso principio applicato qui: ogni fonte merita un'impaginazione pensata per lei, non un template unico appiattito su tutte.
+> Il nome è un omaggio ad **Aldo Manuzio**, lo stampatore veneziano che a fine '400 inventò il corsivo tipografico e il libro tascabile (l'*enchiridion*), portando cura editoriale e leggibilità in ogni pagina che usciva dalla sua Aldine Press. Lo stesso principio applicato qui: ogni sezione del tuo giornale merita un'impaginazione pensata per lei, non un template unico appiattito su tutto.
 
-> **Stato del progetto:** prototipo web (React) con parsing reale dei feed RSS/Atom e classificazione automatica del layout. Non è ancora un'app Android — vedi [Roadmap](#roadmap).
+> **Stato del progetto:** prototipo web (React) con parsing reale dei feed RSS/Atom, aggregazione multi-fonte e classificazione automatica in sezioni. Non è ancora un'app Android — vedi [Roadmap](#roadmap).
 
 ## Demo
 
-Il prototipo carica feed RSS/Atom reali (di default ANSA, Wired Italia, Gazzetta dello Sport, modificabili dalla scheda "Feed") e assegna automaticamente uno dei modelli editoriali disponibili in base al contenuto del feed:
+Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia, Gazzetta dello Sport e **BBC News** (per testare l'aggregazione multilingua IT/EN), modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
 
-- **Quotidiano** — generalista, impaginazione classica (default)
-- **Magazine** — layout più visuale, masthead in corsivo
-- **Sportivo** — masthead condensato ad alto contrasto
+- **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni
+- **Attualità, Mondo, Economia** — impaginazione classica ("quotidiano")
+- **Sport** — masthead condensato ad alto contrasto
+- **Tecnologia** — layout più visuale, masthead in corsivo ("magazine")
+- **Cultura, Gossip** — masthead elegante in corsivo ("rivista")
+
+Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
 
 ### Avviare la demo in locale
 
@@ -25,19 +29,28 @@ Poi apri l'indirizzo che compare in terminale (di solito `http://localhost:5173`
 
 ## Idea di fondo
 
-I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) mostrano tutte le fonti con lo stesso template a card. L'obiettivo di AldusRSS è diverso: ogni fonte a cui ti iscrivi ottiene un proprio "modello editoriale" — assegnato automaticamente in base a euristiche (parole chiave nel titolo/descrizione del feed, presenza di immagini negli articoli) o scelto manualmente dall'utente — così da leggere ogni sito com'era pensato per essere letto, non appiattito in una lista.
+I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fonti con lo stesso template a card, oppure le tengono separate come inbox distinte da svuotare. AldusRSS prova un'idea diversa: comportarsi come un giornale vero, che pesca da più testate e le organizza per argomento invece che per fonte. Ogni articolo viene classificato in una sezione (in base alle categorie native del feed, quando presenti, altrimenti al titolo) e ogni sezione ha una propria identità editoriale. In "Prima Pagina" gli articoli di tutte le sezioni vengono ordinati per recency, pesata da quanto l'utente considera importante ciascuna fonte (impostabile in "Feed") — non è un vero giudizio editoriale su cosa sia importante, solo un'approssimazione onesta e personalizzabile.
 
 ## Limiti noti
 
-- **Proxy CORS**: molti feed non inviano header `Access-Control-Allow-Origin`, quindi il browser non può scaricarli direttamente. Il prototipo prova prima il fetch diretto e, se fallisce, ricade su un proxy CORS pubblico (`api.allorigins.win`) — un workaround client-side best-effort, non sempre disponibile. La costante è isolata in `src/lib/rss.js` ed è facile da sostituire. Il problema sparirà passando a un'app nativa (fetch senza restrizioni CORS).
+- **Proxy CORS**: molti feed non inviano header `Access-Control-Allow-Origin`, quindi il browser non può scaricarli direttamente. Il prototipo prova prima il fetch diretto e, se fallisce, ricade su una catena di proxy CORS pubblici (con timeout per tentativo, così uno "appeso" non blocca gli altri) — un workaround client-side best-effort, non un'infrastruttura nostra. L'elenco è isolato in `src/lib/rss.js` ed è facile da estendere. Il problema sparirà passando a un'app nativa (fetch senza restrizioni CORS).
 - **Corpo articolo**: molti feed pubblicano solo un riassunto, non il testo integrale. La vista articolo mostra quello che il feed fornisce, con un link "Leggi l'articolo originale" verso la fonte.
+- **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi.
+- **Ranking di Prima Pagina**: solo recency × peso fonte configurabile, non un vero giudizio editoriale su cosa sia importante (l'"importanza" di una notizia resta indecidibile in automatico).
 
 ## Roadmap
 
 - [x] Prototipo visivo dei layout
 - [x] Parsing reale dei feed RSS/Atom
-- [x] Motore di classificazione automatica (template per fonte, hero/secondaria/in breve per articolo)
-- [ ] Libreria di un 4° template editoriale (es. cultura/opinione)
+- [x] Aggregazione multi-fonte in un giornale composto a sezioni tematiche, con peso fonte configurabile
+- [x] Libreria di un 4° template editoriale ("rivista", per Cultura/Gossip)
+- [x] Prima fonte in inglese per testare l'aggregazione multilingua (BBC News)
+
+### Piano per il futuro
+
+- [ ] Sezioni riordinabili dall'utente (oggi solo mostra/nascondi)
+- [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso fonte)
+- [ ] Altre fonti EN di test e altre lingue oltre IT/EN
 - [ ] App mobile (Flutter o React Native) con lettura offline
 - [ ] Build APK distribuita via GitHub Releases / F-Droid
 

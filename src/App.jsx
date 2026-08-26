@@ -1,47 +1,47 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Check, Plus, X, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
+import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
 import { fetchFeedXML, parseFeed } from "./lib/rss";
-import { assignTemplate, classifyArticles } from "./lib/classify";
+import { assignSection, composeArticles } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
-import { stripHtml, relativeTime, hashAccentColor, placeholderImage } from "./lib/format";
-import { loadFeedList, saveFeedList, loadCache, saveSourceCache, removeSourceCache } from "./lib/storage";
+import { SECTIONS, SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
+import { stripHtml, relativeTime, placeholderImage } from "./lib/format";
+import {
+  loadFeedList,
+  saveFeedList,
+  loadCache,
+  saveSourceCache,
+  removeSourceCache,
+  loadHiddenSections,
+  saveHiddenSections,
+} from "./lib/storage";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500;1,9..144,700&family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
 `;
 
+const WEIGHT_LEVELS = [
+  { value: 0.5, label: "Basso" },
+  { value: 1, label: "Normale" },
+  { value: 1.5, label: "Alto" },
+];
+
+function weightLabel(value) {
+  return WEIGHT_LEVELS.find((w) => w.value === value)?.label || "Normale";
+}
+
 function mapArticle(a, size) {
   return {
     ...a,
     image: a.image || placeholderImage(a.id, size[0], size[1]),
-    kicker: (a.categories?.[0] || "Notizia").toUpperCase(),
+    kicker: (a.sourceName || "Notizia").toUpperCase(),
     dek: stripHtml(a.description).slice(0, 180),
     time: relativeTime(a.pubDate),
   };
 }
 
-function buildSourceView(feed, entry, usedAccents) {
-  const template = TEMPLATES[entry.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID];
-  let accent = template.accent;
-  if (usedAccents.has(accent)) accent = hashAccentColor(feed.id);
-  usedAccents.add(accent);
-
-  const { hero, secondary, brief } = classifyArticles(entry.articles || []);
-
-  return {
-    id: feed.id,
-    name: entry.feedMeta?.title || feed.url,
-    tagline: stripHtml(entry.feedMeta?.description || "").slice(0, 60) || template.label,
-    accent,
-    paper: template.paper,
-    ink: template.ink,
-    mastheadStyle: template.mastheadStyle,
-    headlineStyle: template.headlineStyle,
-    stale: entry.status === "stale",
-    hero: hero ? mapArticle(hero, [900, 650]) : null,
-    secondary: secondary.map((a) => mapArticle(a, [500, 400])),
-    brief: brief.map((a) => ({ title: a.title, tag: a.categories?.[0] || "", link: a.link })),
-  };
+function buildSectionMeta(id) {
+  if (id === FRONT_PAGE_ID) return { id: FRONT_PAGE_ID, label: "Prima Pagina", templateId: DEFAULT_TEMPLATE_ID };
+  return SECTIONS[id] || { id, label: id, templateId: DEFAULT_TEMPLATE_ID };
 }
 
 function StatusBar({ ink }) {
@@ -55,25 +55,25 @@ function StatusBar({ ink }) {
   );
 }
 
-function Masthead({ src, onMenu }) {
+function Masthead({ view, onMenu }) {
   const today = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div className="px-5 pt-2 pb-3">
       <div className="flex items-center justify-between">
         <button onClick={onMenu} className="p-1 -ml-1">
-          <Menu size={20} style={{ color: src.ink }} />
+          <Menu size={20} style={{ color: view.ink }} />
         </button>
-        <div className="text-center flex-1" style={{ ...src.mastheadStyle, color: src.ink, fontSize: "22px", lineHeight: 1 }}>
-          {src.name}
+        <div className="text-center flex-1" style={{ ...view.mastheadStyle, color: view.ink, fontSize: "22px", lineHeight: 1 }}>
+          AldusRSS
         </div>
         <div className="w-7" />
       </div>
       <div className="flex items-center justify-center gap-2 mt-1.5">
-        <span className="text-[10px] uppercase tracking-widest" style={{ color: src.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
-          {today} · {src.tagline}
+        <span className="text-[10px] uppercase tracking-widest" style={{ color: view.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
+          {today} · {view.label}
         </span>
       </div>
-      <div className="mt-2 h-[2px]" style={{ backgroundColor: src.accent }} />
+      <div className="mt-2 h-[2px]" style={{ backgroundColor: view.accent }} />
     </div>
   );
 }
@@ -89,59 +89,54 @@ function Kicker({ text, accent }) {
   );
 }
 
-function FrontPage({ src, onOpenArticle }) {
-  if (!src.hero) {
+function FrontPage({ view, onOpenArticle }) {
+  if (!view.hero) {
     return (
       <div className="px-5 pb-6 pt-8 text-center">
-        <p className="text-[13px]" style={{ color: src.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
-          Nessun articolo disponibile per questa fonte al momento.
+        <p className="text-[13px]" style={{ color: view.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
+          Nessun articolo disponibile in questa sezione al momento.
         </p>
       </div>
     );
   }
   return (
     <div className="px-5 pb-6">
-      {src.stale && (
-        <p className="mb-3 text-[11px] flex items-center gap-1.5" style={{ color: src.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
-          <AlertTriangle size={12} /> Ultimo aggiornamento riuscito (feed momentaneamente non raggiungibile)
-        </p>
-      )}
       {/* Hero */}
       <button className="block w-full text-left" onClick={onOpenArticle}>
-        <img src={src.hero.image} alt="" className="w-full aspect-[4/3] object-cover" />
+        <img src={view.hero.image} alt="" className="w-full aspect-[4/3] object-cover" />
         <div className="mt-3">
-          <Kicker text={src.hero.kicker} accent={src.accent} />
+          <Kicker text={view.hero.kicker} accent={view.accent} />
           <h1
             className="mt-1"
-            style={{ ...src.headlineStyle, color: src.ink, fontSize: "28px", lineHeight: 1.08 }}
+            style={{ ...view.headlineStyle, color: view.ink, fontSize: "28px", lineHeight: 1.08 }}
           >
-            {src.hero.title}
+            {view.hero.title}
           </h1>
-          <p className="mt-2 text-[14px]" style={{ color: src.ink, opacity: 0.75, fontFamily: "'Inter', sans-serif" }}>
-            {src.hero.dek}
+          <p className="mt-2 text-[14px]" style={{ color: view.ink, opacity: 0.75, fontFamily: "'Inter', sans-serif" }}>
+            {view.hero.dek}
           </p>
-          <div className="mt-2 flex items-center gap-2 text-[11px]" style={{ color: src.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
-            {src.hero.author && (
+          <div className="mt-2 flex items-center gap-2 text-[11px]" style={{ color: view.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
+            {view.hero.author && (
               <>
-                <span>{src.hero.author}</span>
+                <span>{view.hero.author}</span>
                 <span>·</span>
               </>
             )}
             <Clock size={11} />
-            <span>{src.hero.time}</span>
+            <span>{view.hero.time}</span>
           </div>
         </div>
       </button>
 
-      {src.secondary.length > 0 && (
+      {view.secondary.length > 0 && (
         <>
-          <div className="mt-5 h-px" style={{ backgroundColor: src.ink, opacity: 0.15 }} />
+          <div className="mt-5 h-px" style={{ backgroundColor: view.ink, opacity: 0.15 }} />
           <div className="grid grid-cols-2 gap-4 mt-5">
-            {src.secondary.map((item, i) => (
+            {view.secondary.map((item, i) => (
               <a key={i} href={item.link} target="_blank" rel="noreferrer" className="block">
                 <img src={item.image} alt="" className="w-full aspect-[5/4] object-cover" />
-                <Kicker text={item.kicker} accent={src.accent} />
-                <h3 className="mt-1" style={{ ...src.headlineStyle, color: src.ink, fontSize: "15px", lineHeight: 1.15 }}>
+                <Kicker text={item.kicker} accent={view.accent} />
+                <h3 className="mt-1" style={{ ...view.headlineStyle, color: view.ink, fontSize: "15px", lineHeight: 1.15 }}>
                   {item.title}
                 </h3>
               </a>
@@ -150,28 +145,28 @@ function FrontPage({ src, onOpenArticle }) {
         </>
       )}
 
-      {src.brief.length > 0 && (
+      {view.brief.length > 0 && (
         <>
-          <div className="mt-5 h-px" style={{ backgroundColor: src.ink, opacity: 0.15 }} />
+          <div className="mt-5 h-px" style={{ backgroundColor: view.ink, opacity: 0.15 }} />
           <div className="mt-5">
-            <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: src.ink, fontFamily: "'Inter', sans-serif" }}>
+            <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: view.ink, fontFamily: "'Inter', sans-serif" }}>
               In breve
             </span>
-            <div className="mt-2 divide-y" style={{ borderColor: `${src.ink}22` }}>
-              {src.brief.map((item, i) => (
+            <div className="mt-2 divide-y" style={{ borderColor: `${view.ink}22` }}>
+              {view.brief.map((item, i) => (
                 <a
                   key={i}
                   href={item.link}
                   target="_blank"
                   rel="noreferrer"
                   className="py-2.5 flex items-start gap-2"
-                  style={{ borderTopWidth: i === 0 ? 0 : "1px", borderColor: `${src.ink}1F` }}
+                  style={{ borderTopWidth: i === 0 ? 0 : "1px", borderColor: `${view.ink}1F` }}
                 >
-                  <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: src.accent }} />
+                  <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: view.accent }} />
                   <div>
-                    <p className="text-[13.5px]" style={{ color: src.ink, fontFamily: "'Inter', sans-serif" }}>{item.title}</p>
+                    <p className="text-[13.5px]" style={{ color: view.ink, fontFamily: "'Inter', sans-serif" }}>{item.title}</p>
                     {item.tag && (
-                      <span className="text-[10.5px] uppercase tracking-wide" style={{ color: src.ink, opacity: 0.5, fontFamily: "'Inter', sans-serif" }}>{item.tag}</span>
+                      <span className="text-[10.5px] uppercase tracking-wide" style={{ color: view.ink, opacity: 0.5, fontFamily: "'Inter', sans-serif" }}>{item.tag}</span>
                     )}
                   </div>
                 </a>
@@ -184,42 +179,42 @@ function FrontPage({ src, onOpenArticle }) {
   );
 }
 
-function ArticleView({ src, onBack }) {
+function ArticleView({ view, onBack }) {
   return (
     <div className="px-5 pb-8">
-      <button onClick={onBack} className="flex items-center gap-1.5 py-3 text-[13px]" style={{ color: src.ink, fontFamily: "'Inter', sans-serif" }}>
+      <button onClick={onBack} className="flex items-center gap-1.5 py-3 text-[13px]" style={{ color: view.ink, fontFamily: "'Inter', sans-serif" }}>
         <ArrowLeft size={16} />
-        Prima pagina
+        {view.label}
       </button>
-      <img src={src.hero.image} alt="" className="w-full aspect-[4/3] object-cover" />
-      <Kicker text={src.hero.kicker} accent={src.accent} />
-      <h1 className="mt-2" style={{ ...src.headlineStyle, color: src.ink, fontSize: "26px", lineHeight: 1.1 }}>
-        {src.hero.title}
+      <img src={view.hero.image} alt="" className="w-full aspect-[4/3] object-cover" />
+      <Kicker text={view.hero.kicker} accent={view.accent} />
+      <h1 className="mt-2" style={{ ...view.headlineStyle, color: view.ink, fontSize: "26px", lineHeight: 1.1 }}>
+        {view.hero.title}
       </h1>
-      <div className="mt-2 flex items-center gap-2 text-[11px]" style={{ color: src.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
-        {src.hero.author && (
+      <div className="mt-2 flex items-center gap-2 text-[11px]" style={{ color: view.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
+        {view.hero.author && (
           <>
-            <span>{src.hero.author}</span>
+            <span>{view.hero.author}</span>
             <span>·</span>
           </>
         )}
         <Clock size={11} />
-        <span>{src.hero.time}</span>
+        <span>{view.hero.time}</span>
       </div>
       <div className="mt-4 space-y-3">
-        {stripHtml(src.hero.description).split(/\n\n+/).filter(Boolean).map((p, i) => (
-          <p key={i} className="text-[15px] leading-relaxed" style={{ color: src.ink, opacity: 0.88, fontFamily: "'Inter', sans-serif" }}>
+        {stripHtml(view.hero.description).split(/\n\n+/).filter(Boolean).map((p, i) => (
+          <p key={i} className="text-[15px] leading-relaxed" style={{ color: view.ink, opacity: 0.88, fontFamily: "'Inter', sans-serif" }}>
             {p}
           </p>
         ))}
       </div>
-      {src.hero.link && (
+      {view.hero.link && (
         <a
-          href={src.hero.link}
+          href={view.hero.link}
           target="_blank"
           rel="noreferrer"
           className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-medium"
-          style={{ color: src.accent, fontFamily: "'Inter', sans-serif" }}
+          style={{ color: view.accent, fontFamily: "'Inter', sans-serif" }}
         >
           Leggi l'articolo originale <ExternalLink size={13} />
         </a>
@@ -228,7 +223,7 @@ function ArticleView({ src, onBack }) {
   );
 }
 
-function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd }) {
+function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightChange }) {
   const [adding, setAdding] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [addError, setAddError] = useState("");
@@ -260,7 +255,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd }) {
     <div className="px-5 pt-4 pb-8">
       <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: "#211D19" }}>I tuoi feed</h2>
       <p className="text-[12.5px] mt-1 mb-4" style={{ color: "#211D19", opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
-        Ogni fonte mantiene la propria impaginazione automatica.
+        Ogni fonte alimenta le sezioni del tuo giornale. Il peso decide quanto conta in "Prima Pagina".
       </p>
       <div className="space-y-2.5">
         {feedList.map((f) => {
@@ -294,7 +289,15 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd }) {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => onWeightChange(f.id)}
+                  title={`Peso: ${weightLabel(f.weight)} (tocca per cambiare)`}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{ backgroundColor: "#21201C14", color: "#211D19" }}
+                >
+                  {weightLabel(f.weight)[0]}
+                </button>
                 <button
                   onClick={() => onToggle(f.id)}
                   className="w-9 h-5 rounded-full relative transition-colors"
@@ -356,34 +359,36 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd }) {
   );
 }
 
-function SettingsScreen({ activeTemplateId }) {
-  const [autoLayout, setAutoLayout] = useState(true);
+function SettingsScreen({ hiddenSections, onToggleSection }) {
   return (
     <div className="px-5 pt-4 pb-8">
       <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: "#211D19" }}>Impostazioni</h2>
-      <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: "#FFFFFFAA", border: "1px solid #21201C1A" }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[14px] font-medium" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>Layout automatico per fonte</p>
-            <p className="text-[12px] mt-0.5" style={{ color: "#211D19", opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>Sceglie font, colore e griglia in base al feed</p>
-          </div>
-          <button
-            onClick={() => setAutoLayout((v) => !v)}
-            className="w-9 h-5 rounded-full relative shrink-0"
-            style={{ backgroundColor: autoLayout ? "#2E6F6A" : "#21201C33" }}
-          >
-            <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: autoLayout ? "18px" : "2px" }} />
-          </button>
+      <div className="mt-4 p-4 rounded-lg space-y-3" style={{ backgroundColor: "#FFFFFFAA", border: "1px solid #21201C1A" }}>
+        <div>
+          <p className="text-[14px] font-medium" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>Sezioni visibili</p>
+          <p className="text-[12px] mt-0.5" style={{ color: "#211D19", opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>Nascondi le sezioni che non ti interessano</p>
         </div>
+        {SECTION_ORDER.map((id) => {
+          const section = SECTIONS[id];
+          const visible = !hiddenSections.includes(id);
+          return (
+            <div key={id} className="flex items-center justify-between text-[13px]" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>
+              {section.label}
+              <button
+                onClick={() => onToggleSection(id)}
+                className="w-9 h-5 rounded-full relative shrink-0"
+                style={{ backgroundColor: visible ? "#2E6F6A" : "#21201C33" }}
+              >
+                <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: visible ? "18px" : "2px" }} />
+              </button>
+            </div>
+          );
+        })}
       </div>
-      <div className="mt-3 p-4 rounded-lg space-y-2" style={{ backgroundColor: "#FFFFFFAA", border: "1px solid #21201C1A" }}>
-        <p className="text-[14px] font-medium" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>Modello editoriale della fonte attiva</p>
-        {Object.values(TEMPLATES).map((t) => (
-          <div key={t.id} className="flex items-center gap-2 text-[13px]" style={{ color: "#211D19", fontFamily: "'Inter', sans-serif" }}>
-            {t.id === activeTemplateId ? <Check size={14} color="#2E6F6A" /> : <span className="w-3.5" />}
-            {t.label}
-          </div>
-        ))}
+      <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: "#FFFFFFAA", border: "1px solid #21201C1A" }}>
+        <p className="text-[12.5px]" style={{ color: "#211D19", opacity: 0.7, fontFamily: "'Inter', sans-serif" }}>
+          Nessun contatore di "non letti": il giornale si aggiorna da solo, aprilo quando vuoi tu.
+        </p>
       </div>
     </div>
   );
@@ -392,8 +397,9 @@ function SettingsScreen({ activeTemplateId }) {
 export default function App() {
   const [feedList, setFeedList] = useState(() => loadFeedList());
   const [sources, setSources] = useState({});
+  const [hiddenSections, setHiddenSections] = useState(() => loadHiddenSections());
   const [tab, setTab] = useState("front");
-  const [sourceId, setSourceId] = useState(null);
+  const [activeSection, setActiveSection] = useState(FRONT_PAGE_ID);
   const [article, setArticle] = useState(false);
 
   const refreshSource = useCallback(async (feed) => {
@@ -401,11 +407,10 @@ export default function App() {
     try {
       const xml = await fetchFeedXML(feed.url);
       const parsed = parseFeed(xml);
-      const templateId = assignTemplate(parsed);
+      const articles = parsed.articles.map((a) => ({ ...a, section: assignSection(a) }));
       const data = {
         feedMeta: { title: parsed.title, description: parsed.description, link: parsed.link },
-        articles: parsed.articles,
-        templateId,
+        articles,
       };
       saveSourceCache(feed.id, data);
       setSources((prev) => ({ ...prev, [feed.id]: { id: feed.id, status: "ready", ...data } }));
@@ -426,14 +431,13 @@ export default function App() {
 
   const addFeed = useCallback(async (url) => {
     const id = crypto.randomUUID();
-    const newFeed = { id, url, enabled: true };
+    const newFeed = { id, url, enabled: true, weight: 1 };
     setFeedList((prev) => {
       const next = [...prev, newFeed];
       saveFeedList(next);
       return next;
     });
     await refreshSource(newFeed);
-    setSourceId(id);
   }, [refreshSource]);
 
   const removeFeed = useCallback((id) => {
@@ -458,90 +462,150 @@ export default function App() {
     });
   }, []);
 
-  const sourceViews = useMemo(() => {
-    const usedAccents = new Set();
-    const views = {};
+  const changeWeight = useCallback((id) => {
+    setFeedList((prev) => {
+      const next = prev.map((f) => {
+        if (f.id !== id) return f;
+        const idx = WEIGHT_LEVELS.findIndex((w) => w.value === (f.weight ?? 1));
+        const nextLevel = WEIGHT_LEVELS[(idx + 1) % WEIGHT_LEVELS.length];
+        return { ...f, weight: nextLevel.value };
+      });
+      saveFeedList(next);
+      return next;
+    });
+  }, []);
+
+  const toggleSectionHidden = useCallback((id) => {
+    setHiddenSections((prev) => {
+      const next = prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id];
+      saveHiddenSections(next);
+      return next;
+    });
+  }, []);
+
+  const anyReady = Object.values(sources).some((s) => s && (s.status === "ready" || s.status === "stale"));
+
+  const allArticles = useMemo(() => {
+    const list = [];
     for (const feed of feedList) {
       if (!feed.enabled) continue;
       const entry = sources[feed.id];
       if (!entry || (entry.status !== "ready" && entry.status !== "stale")) continue;
-      views[feed.id] = buildSourceView(feed, entry, usedAccents);
+      const sourceName = entry.feedMeta?.title || feed.url;
+      for (const a of entry.articles || []) {
+        list.push({ ...a, sourceId: feed.id, sourceName, section: a.section || DEFAULT_SECTION_ID });
+      }
     }
-    return views;
+    return list;
   }, [feedList, sources]);
 
+  const sourceWeights = useMemo(() => {
+    const map = {};
+    for (const f of feedList) map[f.id] = f.weight ?? 1;
+    return map;
+  }, [feedList]);
+
+  const visibleSections = useMemo(() => {
+    const present = new Set(allArticles.map((a) => a.section));
+    return SECTION_ORDER.filter((id) => present.has(id) && !hiddenSections.includes(id));
+  }, [allArticles, hiddenSections]);
+
+  const sectionTabs = useMemo(() => {
+    const tabs = [{ id: FRONT_PAGE_ID, label: "Prima Pagina", accent: TEMPLATES[DEFAULT_TEMPLATE_ID].accent }];
+    for (const id of visibleSections) {
+      const meta = SECTIONS[id];
+      tabs.push({ id, label: meta.label, accent: TEMPLATES[meta.templateId]?.accent || TEMPLATES[DEFAULT_TEMPLATE_ID].accent });
+    }
+    return tabs;
+  }, [visibleSections]);
+
   useEffect(() => {
-    const ids = Object.keys(sourceViews);
-    if (ids.length === 0) return;
-    if (!sourceId || !sourceViews[sourceId]) {
-      setSourceId(ids[0]);
+    if (activeSection !== FRONT_PAGE_ID && !visibleSections.includes(activeSection)) {
+      setActiveSection(FRONT_PAGE_ID);
       setArticle(false);
     }
-  }, [sourceViews, sourceId]);
+  }, [visibleSections, activeSection]);
 
-  const src = sourceId ? sourceViews[sourceId] : null;
-  const activeTemplateId = sources[sourceId]?.templateId;
+  const currentView = useMemo(() => {
+    const isFront = activeSection === FRONT_PAGE_ID;
+    const articles = isFront ? allArticles : allArticles.filter((a) => a.section === activeSection);
+    const composed = composeArticles(articles, sourceWeights);
+    const sectionMeta = buildSectionMeta(activeSection);
+    const template = TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID];
+    return {
+      id: sectionMeta.id,
+      label: sectionMeta.label,
+      accent: template.accent,
+      paper: template.paper,
+      ink: template.ink,
+      mastheadStyle: template.mastheadStyle,
+      headlineStyle: template.headlineStyle,
+      hero: composed.hero ? mapArticle(composed.hero, [900, 650]) : null,
+      secondary: composed.secondary.map((a) => mapArticle(a, [500, 400])),
+      brief: composed.brief.map((a) => ({ title: a.title, tag: a.sourceName || "", link: a.link })),
+    };
+  }, [activeSection, allArticles, sourceWeights]);
 
   return (
     <div className="min-h-screen flex items-center justify-center py-8" style={{ backgroundColor: "#DDD8CB", fontFamily: "'Inter', sans-serif" }}>
       <style>{FONTS}</style>
       <div
         className="w-[375px] h-[780px] rounded-[36px] overflow-hidden shadow-2xl flex flex-col"
-        style={{ backgroundColor: src?.paper || "#EFE9DC", border: "8px solid #16140F" }}
+        style={{ backgroundColor: anyReady ? currentView.paper : "#EFE9DC", border: "8px solid #16140F" }}
       >
-        <StatusBar ink={src?.ink || "#211D19"} />
+        <StatusBar ink={anyReady ? currentView.ink : "#211D19"} />
 
-        {tab === "front" && !src && (
+        {tab === "front" && !anyReady && (
           <div className="flex-1 flex items-center justify-center px-8 text-center">
             <p className="text-[13px]" style={{ color: "#211D19", opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
               {feedList.length === 0
                 ? "Nessun feed configurato. Aggiungine uno dalla scheda \"Feed\"."
-                : "Caricamento dei feed in corso…"}
+                : "Caricamento del giornale in corso…"}
             </p>
           </div>
         )}
 
-        {tab === "front" && src && !article && (
+        {tab === "front" && anyReady && !article && (
           <>
-            <Masthead src={src} onMenu={() => {}} />
+            <Masthead view={currentView} onMenu={() => {}} />
             <div className="px-5 flex gap-2 pb-3 overflow-x-auto">
-              {Object.values(sourceViews).map((s) => (
+              {sectionTabs.map((t) => (
                 <button
-                  key={s.id}
-                  onClick={() => { setSourceId(s.id); setArticle(false); }}
+                  key={t.id}
+                  onClick={() => { setActiveSection(t.id); setArticle(false); }}
                   className="px-2.5 py-1 rounded-full text-[10.5px] font-semibold uppercase tracking-wide transition-colors shrink-0"
                   style={{
-                    backgroundColor: sourceId === s.id ? s.accent : "transparent",
-                    color: sourceId === s.id ? "#fff" : src.ink,
-                    opacity: sourceId === s.id ? 1 : 0.5,
-                    border: `1px solid ${sourceId === s.id ? s.accent : `${src.ink}33`}`,
+                    backgroundColor: activeSection === t.id ? t.accent : "transparent",
+                    color: activeSection === t.id ? "#fff" : currentView.ink,
+                    opacity: activeSection === t.id ? 1 : 0.5,
+                    border: `1px solid ${activeSection === t.id ? t.accent : `${currentView.ink}33`}`,
                   }}
                 >
-                  {s.name}
+                  {t.label}
                 </button>
               ))}
             </div>
             <div className="flex-1 overflow-y-auto">
-              <FrontPage src={src} onOpenArticle={() => setArticle(true)} />
+              <FrontPage view={currentView} onOpenArticle={() => setArticle(true)} />
             </div>
           </>
         )}
 
-        {tab === "front" && src && article && (
+        {tab === "front" && anyReady && article && (
           <div className="flex-1 overflow-y-auto">
-            <ArticleView src={src} onBack={() => setArticle(false)} />
+            <ArticleView view={currentView} onBack={() => setArticle(false)} />
           </div>
         )}
 
         {tab === "feeds" && (
           <div className="flex-1 overflow-y-auto" style={{ backgroundColor: "#EDE8DC" }}>
-            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} />
+            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onWeightChange={changeWeight} />
           </div>
         )}
 
         {tab === "settings" && (
           <div className="flex-1 overflow-y-auto" style={{ backgroundColor: "#EDE8DC" }}>
-            <SettingsScreen activeTemplateId={activeTemplateId} />
+            <SettingsScreen hiddenSections={hiddenSections} onToggleSection={toggleSectionHidden} />
           </div>
         )}
 
