@@ -4,7 +4,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 > Il nome è un omaggio ad **Aldo Manuzio**, lo stampatore veneziano che a fine '400 inventò il corsivo tipografico e il libro tascabile (l'*enchiridion*), portando cura editoriale e leggibilità in ogni pagina che usciva dalla sua Aldine Press. Lo stesso principio applicato qui: ogni sezione del tuo giornale merita un'impaginazione pensata per lei, non un template unico appiattito su tutto.
 
-> **Stato del progetto:** prototipo web (React) con parsing reale dei feed RSS/Atom, aggregazione multi-fonte e classificazione automatica in sezioni. Non è ancora un'app installabile su telefono/desktop — vedi [Roadmap](#roadmap).
+> **Stato del progetto:** prototipo web (React) con parsing reale dei feed RSS/Atom, aggregazione multi-fonte e classificazione automatica in sezioni. Lo scaffolding Android (Capacitor) è pronto e produce un APK funzionante — priorità attuale, prima di desktop e iOS. Vedi [Roadmap](#roadmap).
 
 ## Demo
 
@@ -31,6 +31,16 @@ npm run dev
 
 Poi apri l'indirizzo che compare in terminale (di solito `http://localhost:5173`).
 
+### Build Android (Capacitor)
+
+Richiede un Android SDK installato (`ANDROID_HOME` impostato, licenze accettate) — vedi la [guida Capacitor](https://capacitorjs.com/docs/android) se non l'hai già.
+
+```bash
+npm run android:build
+```
+
+Compila il sito, sincronizza la cartella `android/` e genera un APK di debug in `android/app/build/outputs/apk/debug/app-debug.apk`, installabile su un dispositivo o emulatore per test (`adb install app-debug.apk`).
+
 ## Idea di fondo
 
 I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fonti con lo stesso template a card, oppure le tengono separate come inbox distinte da svuotare. AldusRSS prova un'idea diversa: comportarsi come un giornale vero, che pesca da più testate e le organizza per argomento invece che per fonte. Ogni articolo viene classificato in una sezione (in base alle categorie native del feed, quando presenti, altrimenti al titolo) e ogni sezione ha una propria identità editoriale. In "Prima Pagina" gli articoli di tutte le sezioni vengono ordinati per recency, pesata da quanto l'utente considera importante ciascuna fonte (impostabile in "Feed") — non è un vero giudizio editoriale su cosa sia importante, solo un'approssimazione onesta e personalizzabile.
@@ -54,15 +64,18 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Interfaccia in italiano/inglese, con rilevamento automatico della lingua (in ottica app nativa, dove verrebbe letta dal sistema)
 - [x] Sezioni riordinabili dall'utente, oltre a mostra/nascondi
 - [x] Autodiscovery del feed a partire dall'indirizzo di un sito, invece di dover copiare l'URL esatto del feed
+- [x] Scaffolding Android via Capacitor, con build APK di debug funzionante (`npm run android:build`)
 
-### Piano per il futuro
+### Piano per il futuro (priorità: Android prima del resto)
 
+- [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
+- [ ] Icona e splash screen dedicati (oggi quelli di default di Capacitor)
+- [ ] APK firmato e distribuito via GitHub Releases / F-Droid
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso fonte)
 - [ ] Altre fonti EN di test e altre lingue oltre IT/EN (interfaccia e contenuti)
 - [ ] Motore di ricerca feed più ampio (oltre l'autodiscovery da un sito già noto) — richiederebbe un servizio esterno terzo, da valutare con calma
-- [ ] App mobile Android/iOS via **Capacitor**, con lettura offline
-- [ ] App desktop Windows/Linux/macOS via **Tauri**
-- [ ] Build APK/eseguibili distribuiti via GitHub Releases / F-Droid
+- [ ] App desktop Windows/Linux/macOS via **Tauri** — dopo Android
+- [ ] iOS — dopo Android
 
 ## Stack
 

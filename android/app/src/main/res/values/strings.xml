@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AldusRSS</string>
+    <string name="title_activity_main">AldusRSS</string>
+    <string name="package_name">com.andreacorinti.aldusrss</string>
+    <string name="custom_url_scheme">com.andreacorinti.aldusrss</string>
+</resources>
