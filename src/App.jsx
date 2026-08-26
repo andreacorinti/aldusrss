@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, GripVertical } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
@@ -421,7 +421,105 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
   );
 }
 
-function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onMoveSection, darkMode, onToggleDarkMode, languagePref, onLanguageChange, chrome, lang }) {
+// Riordino a trascinamento (Pointer Events: stessa API per mouse e touch,
+// pensato per la versione smartphone). Tiene la posizione di partenza del
+// trascinamento fissa e ricalcola ad ogni movimento quante righe ha attraversato
+// il puntatore, così l'elenco si riordina dal vivo mentre trascini.
+function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection, onReorderSections, chrome, lang }) {
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const rowRefs = useRef(new Map());
+  const dragState = useRef(null);
+
+  function handlePointerDown(e, id) {
+    const idx = sectionOrder.indexOf(id);
+    const el = rowRefs.current.get(id);
+    if (!el) return;
+    let rowStep = el.getBoundingClientRect().height + 12;
+    const neighborId = sectionOrder[idx === 0 ? 1 : idx - 1];
+    const neighborEl = neighborId && rowRefs.current.get(neighborId);
+    if (neighborEl) {
+      const diff = Math.abs(el.getBoundingClientRect().top - neighborEl.getBoundingClientRect().top);
+      if (diff > 0) rowStep = diff;
+    }
+    dragState.current = { originIndex: idx, startY: e.clientY, rowStep, lastIndex: idx };
+    setDraggingId(id);
+    setDragOffset(0);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e) {
+    if (!dragState.current) return;
+    const deltaY = e.clientY - dragState.current.startY;
+    setDragOffset(deltaY);
+    const { originIndex, rowStep, lastIndex } = dragState.current;
+    const desiredIndex = Math.min(Math.max(originIndex + Math.round(deltaY / rowStep), 0), sectionOrder.length - 1);
+    if (desiredIndex !== lastIndex) {
+      const next = [...sectionOrder];
+      const [moved] = next.splice(lastIndex, 1);
+      next.splice(desiredIndex, 0, moved);
+      dragState.current.lastIndex = desiredIndex;
+      onReorderSections(next);
+    }
+  }
+
+  function endDrag() {
+    dragState.current = null;
+    setDraggingId(null);
+    setDragOffset(0);
+  }
+
+  return (
+    <>
+      {sectionOrder.map((id) => {
+        const visible = !hiddenSections.includes(id);
+        const isDragging = draggingId === id;
+        return (
+          <div
+            key={id}
+            ref={(el) => {
+              if (el) rowRefs.current.set(id, el);
+              else rowRefs.current.delete(id);
+            }}
+            className="flex items-center justify-between text-[13px]"
+            style={{
+              color: chrome.ink,
+              fontFamily: "'Inter', sans-serif",
+              transform: isDragging ? `translateY(${dragOffset}px)` : "none",
+              position: "relative",
+              zIndex: isDragging ? 10 : 1,
+              opacity: isDragging ? 0.9 : 1,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <button
+                onPointerDown={(e) => handlePointerDown(e, id)}
+                onPointerMove={handlePointerMove}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                aria-label={t(lang, "sectionDragHandle")}
+                className="p-0.5 -ml-1"
+                style={{ touchAction: "none", cursor: isDragging ? "grabbing" : "grab" }}
+              >
+                <GripVertical size={15} color={`${chrome.ink}88`} />
+              </button>
+              <span>{t(lang, `section.${id}`)}</span>
+            </div>
+            <button
+              onClick={() => onToggleSection(id)}
+              className="w-9 h-5 rounded-full relative shrink-0"
+              style={{ backgroundColor: visible ? chrome.success : chrome.divider }}
+            >
+              <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: visible ? "18px" : "2px" }} />
+            </button>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReorderSections, darkMode, onToggleDarkMode, languagePref, onLanguageChange, chrome, lang }) {
   return (
     <div className="px-5 pt-4 pb-8">
       <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>{t(lang, "tabSettings")}</h2>
@@ -471,41 +569,14 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onMoveS
           <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "sectionsVisibleTitle")}</p>
           <p className="text-[12px] mt-0.5" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{t(lang, "sectionsVisibleSubtitle")}</p>
         </div>
-        {sectionOrder.map((id, idx) => {
-          const visible = !hiddenSections.includes(id);
-          return (
-            <div key={id} className="flex items-center justify-between text-[13px]" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col -my-1">
-                  <button
-                    onClick={() => onMoveSection(id, -1)}
-                    disabled={idx === 0}
-                    aria-label={t(lang, "sectionMoveUp")}
-                    style={{ opacity: idx === 0 ? 0.25 : 0.7 }}
-                  >
-                    <ChevronUp size={13} color={chrome.ink} />
-                  </button>
-                  <button
-                    onClick={() => onMoveSection(id, 1)}
-                    disabled={idx === sectionOrder.length - 1}
-                    aria-label={t(lang, "sectionMoveDown")}
-                    style={{ opacity: idx === sectionOrder.length - 1 ? 0.25 : 0.7 }}
-                  >
-                    <ChevronDown size={13} color={chrome.ink} />
-                  </button>
-                </div>
-                <span>{t(lang, `section.${id}`)}</span>
-              </div>
-              <button
-                onClick={() => onToggleSection(id)}
-                className="w-9 h-5 rounded-full relative shrink-0"
-                style={{ backgroundColor: visible ? chrome.success : chrome.divider }}
-              >
-                <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: visible ? "18px" : "2px" }} />
-              </button>
-            </div>
-          );
-        })}
+        <ReorderableSectionsList
+          sectionOrder={sectionOrder}
+          hiddenSections={hiddenSections}
+          onToggleSection={onToggleSection}
+          onReorderSections={onReorderSections}
+          chrome={chrome}
+          lang={lang}
+        />
       </div>
 
       <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
@@ -641,16 +712,9 @@ export default function App() {
     });
   }, []);
 
-  const moveSection = useCallback((id, direction) => {
-    setSectionOrder((prev) => {
-      const idx = prev.indexOf(id);
-      const swapWith = idx + direction;
-      if (idx < 0 || swapWith < 0 || swapWith >= prev.length) return prev;
-      const next = [...prev];
-      [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
-      saveSectionOrderPref(next);
-      return next;
-    });
+  const reorderSections = useCallback((newOrder) => {
+    setSectionOrder(newOrder);
+    saveSectionOrderPref(newOrder);
   }, []);
 
   const toggleDarkMode = useCallback(() => {
@@ -795,7 +859,7 @@ export default function App() {
               hiddenSections={hiddenSections}
               onToggleSection={toggleSectionHidden}
               sectionOrder={sectionOrder}
-              onMoveSection={moveSection}
+              onReorderSections={reorderSections}
               darkMode={darkMode}
               onToggleDarkMode={toggleDarkMode}
               languagePref={languagePref}
