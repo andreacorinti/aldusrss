@@ -70,6 +70,10 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 
 ### Piano per il futuro (priorità: Android prima del resto)
 
+- [ ] **Prima Pagina monopolizzata da una singola fonte** (bug trovato testando con un feed reale): serve un tetto per fonte in hero+secondaria, oggi assente in `bucketArticles`
+- [ ] Menù hamburger in alto a sinistra senza funzione: dargli uno scopo reale o rimuoverlo
+- [ ] Trascinamento sezioni poco fluido su movimenti veloci: serve un'animazione vera (tecnica FLIP) invece dello snap discreto attuale
+- [ ] Riconsiderare BBC News come fonte di default — ripensare con calma l'approccio al pubblico internazionale
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
 - [ ] Icona e splash screen dedicati (oggi quelli di default di Capacitor)
 - [ ] APK firmato e distribuito via GitHub Releases / F-Droid
