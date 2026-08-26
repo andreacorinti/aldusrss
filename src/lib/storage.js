@@ -2,6 +2,7 @@ const FEEDS_KEY = "aldusrss.feeds";
 const CACHE_KEY = "aldusrss.cache";
 const HIDDEN_SECTIONS_KEY = "aldusrss.hiddenSections";
 const DARK_MODE_KEY = "aldusrss.darkMode";
+const LANGUAGE_KEY = "aldusrss.language";
 
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
@@ -98,6 +99,23 @@ export function loadDarkMode() {
 export function saveDarkMode(value) {
   try {
     localStorage.setItem(DARK_MODE_KEY, String(value));
+  } catch {
+    // ignora
+  }
+}
+
+// "auto" (default) = segue la lingua del browser; "it"/"en" = scelta esplicita.
+export function loadLanguagePref() {
+  try {
+    return localStorage.getItem(LANGUAGE_KEY) || "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+export function saveLanguagePref(value) {
+  try {
+    localStorage.setItem(LANGUAGE_KEY, value);
   } catch {
     // ignora
   }

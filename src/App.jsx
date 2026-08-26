@@ -5,6 +5,7 @@ import { assignSection, composeArticles } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
 import { stripHtml, relativeTime, placeholderImage } from "./lib/format";
+import { LANGUAGES, resolveLanguage, t } from "./lib/i18n";
 import {
   loadFeedList,
   saveFeedList,
@@ -15,6 +16,8 @@ import {
   saveHiddenSections,
   loadDarkMode,
   saveDarkMode,
+  loadLanguagePref,
+  saveLanguagePref,
 } from "./lib/storage";
 
 const FONTS = `
@@ -22,28 +25,30 @@ const FONTS = `
 `;
 
 const WEIGHT_LEVELS = [
-  { value: 0.5, label: "Basso" },
-  { value: 1, label: "Normale" },
-  { value: 1.5, label: "Alto" },
+  { value: 0.5, labelKey: "weightLow" },
+  { value: 1, labelKey: "weightNormal" },
+  { value: 1.5, labelKey: "weightHigh" },
 ];
 
-function weightLabel(value) {
-  return WEIGHT_LEVELS.find((w) => w.value === value)?.label || "Normale";
+function weightLabel(value, lang) {
+  const level = WEIGHT_LEVELS.find((w) => w.value === value) || WEIGHT_LEVELS[1];
+  return t(lang, level.labelKey);
 }
 
-function mapArticle(a, size) {
+function mapArticle(a, size, lang) {
   return {
     ...a,
     image: a.image || placeholderImage(a.id, size[0], size[1]),
-    kicker: (a.sourceName || "Notizia").toUpperCase(),
+    kicker: (a.sourceName || "").toUpperCase(),
     dek: stripHtml(a.description).slice(0, 180),
-    time: relativeTime(a.pubDate),
+    time: relativeTime(a.pubDate, lang),
   };
 }
 
 function buildSectionMeta(id) {
-  if (id === FRONT_PAGE_ID) return { id: FRONT_PAGE_ID, label: "Prima Pagina", templateId: DEFAULT_TEMPLATE_ID };
-  return SECTIONS[id] || { id, label: id, templateId: DEFAULT_TEMPLATE_ID };
+  if (id === FRONT_PAGE_ID) return { id: FRONT_PAGE_ID, labelKey: "frontPage", templateId: DEFAULT_TEMPLATE_ID };
+  const section = SECTIONS[id];
+  return section ? { id, labelKey: `section.${id}`, templateId: section.templateId } : { id, labelKey: id, templateId: DEFAULT_TEMPLATE_ID };
 }
 
 function resolveTemplate(template, dark) {
@@ -96,8 +101,8 @@ function StatusBar({ ink }) {
   );
 }
 
-function Masthead({ view, onMenu }) {
-  const today = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+function Masthead({ view, lang, onMenu }) {
+  const today = new Date().toLocaleDateString(lang === "en" ? "en-GB" : "it-IT", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div className="px-5 pt-2 pb-3">
       <div className="flex items-center justify-between">
@@ -130,12 +135,12 @@ function Kicker({ text, accent }) {
   );
 }
 
-function FrontPage({ view, onOpenArticle }) {
+function FrontPage({ view, lang, onOpenArticle }) {
   if (!view.hero) {
     return (
       <div className="px-5 pb-6 pt-8 text-center">
         <p className="text-[13px]" style={{ color: view.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
-          Nessun articolo disponibile in questa sezione al momento.
+          {t(lang, "frontEmptySection")}
         </p>
       </div>
     );
@@ -220,7 +225,7 @@ function FrontPage({ view, onOpenArticle }) {
   );
 }
 
-function ArticleView({ view, onBack }) {
+function ArticleView({ view, lang, onBack }) {
   return (
     <div className="px-5 pb-8">
       <button onClick={onBack} className="flex items-center gap-1.5 py-3 text-[13px]" style={{ color: view.ink, fontFamily: "'Inter', sans-serif" }}>
@@ -257,14 +262,14 @@ function ArticleView({ view, onBack }) {
           className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-medium"
           style={{ color: view.accent, fontFamily: "'Inter', sans-serif" }}
         >
-          Leggi l'articolo originale <ExternalLink size={13} />
+          {t(lang, "readOriginal")} <ExternalLink size={13} />
         </a>
       )}
     </div>
   );
 }
 
-function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightChange, chrome }) {
+function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightChange, chrome, lang }) {
   const [adding, setAdding] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [addError, setAddError] = useState("");
@@ -277,11 +282,11 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
     try {
       new URL(url);
     } catch {
-      setAddError("URL non valido");
+      setAddError(t(lang, "errorInvalidUrl"));
       return;
     }
     if (feedList.some((f) => f.url === url)) {
-      setAddError("Questo feed è già nella lista");
+      setAddError(t(lang, "errorDuplicateFeed"));
       return;
     }
     setAddError("");
@@ -294,9 +299,9 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
 
   return (
     <div className="px-5 pt-4 pb-8">
-      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>I tuoi feed</h2>
+      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>{t(lang, "feedsTitle")}</h2>
       <p className="text-[12.5px] mt-1 mb-4" style={{ color: chrome.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
-        Ogni fonte alimenta le sezioni del tuo giornale. Il peso decide quanto conta in "Prima Pagina".
+        {t(lang, "feedsSubtitle")}
       </p>
       <div className="space-y-2.5">
         {feedList.map((f) => {
@@ -312,17 +317,17 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
                   <p className="text-[14px] font-medium truncate" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{label}</p>
                   {s?.status === "loading" && (
                     <span className="text-[11px] flex items-center gap-1" style={{ color: `${chrome.ink}88` }}>
-                      <Loader2 size={11} className="animate-spin" /> caricamento…
+                      <Loader2 size={11} className="animate-spin" /> {t(lang, "statusLoading")}
                     </span>
                   )}
                   {s?.status === "error" && (
                     <span className="text-[11px] flex items-center gap-1" style={{ color: chrome.danger }}>
-                      <AlertTriangle size={11} /> {s.errorMessage || "errore di caricamento"}
+                      <AlertTriangle size={11} /> {s.errorMessage || t(lang, "statusErrorFallback")}
                     </span>
                   )}
                   {s?.status === "stale" && (
                     <span className="text-[11px] flex items-center gap-1" style={{ color: chrome.warning }}>
-                      <AlertTriangle size={11} /> non raggiungibile, mostro l'ultima copia
+                      <AlertTriangle size={11} /> {t(lang, "statusStale")}
                     </span>
                   )}
                   {s?.status === "ready" && (
@@ -333,11 +338,11 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => onWeightChange(f.id)}
-                  title={`Peso: ${weightLabel(f.weight)} (tocca per cambiare)`}
+                  title={t(lang, "weightTooltip").replace("{weight}", weightLabel(f.weight, lang))}
                   className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
                   style={{ backgroundColor: chrome.chipBg, color: chrome.ink }}
                 >
-                  {weightLabel(f.weight)[0]}
+                  {weightLabel(f.weight, lang)[0]}
                 </button>
                 <button
                   onClick={() => onToggle(f.id)}
@@ -361,7 +366,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
               type="text"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="https://esempio.it/feed.xml"
+              placeholder={t(lang, "feedUrlPlaceholder")}
               className="w-full text-[13px] px-2.5 py-2 rounded-md outline-none"
               style={{ backgroundColor: chrome.card, color: chrome.ink, border: `1px solid ${chrome.divider}` }}
             />
@@ -374,7 +379,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
                 style={{ backgroundColor: chrome.ink, color: chrome.screenBg, opacity: submitting ? 0.6 : 1 }}
               >
                 {submitting && <Loader2 size={13} className="animate-spin" />}
-                Aggiungi
+                {t(lang, "addButton")}
               </button>
               <button
                 type="button"
@@ -382,7 +387,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
                 className="px-3 py-2 rounded-md text-[12.5px] font-medium"
                 style={{ color: `${chrome.ink}AA`, border: `1px solid ${chrome.divider}` }}
               >
-                Annulla
+                {t(lang, "cancelButton")}
               </button>
             </div>
           </form>
@@ -392,7 +397,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
             className="w-full mt-1 py-3 rounded-lg text-[13px] font-medium border border-dashed flex items-center justify-center gap-1.5"
             style={{ color: `${chrome.ink}AA`, borderColor: chrome.divider, fontFamily: "'Inter', sans-serif" }}
           >
-            <Plus size={14} /> Aggiungi un feed RSS
+            <Plus size={14} /> {t(lang, "addFeedButton")}
           </button>
         )}
       </div>
@@ -400,16 +405,16 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
   );
 }
 
-function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDarkMode, chrome }) {
+function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDarkMode, languagePref, onLanguageChange, chrome, lang }) {
   return (
     <div className="px-5 pt-4 pb-8">
-      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>Impostazioni</h2>
+      <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>{t(lang, "tabSettings")}</h2>
 
-      <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
+      <div className="mt-4 p-4 rounded-lg space-y-4" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Moon size={15} color={chrome.ink} />
-            <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>Modalità notte</p>
+            <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "darkModeLabel")}</p>
           </div>
           <button
             onClick={onToggleDarkMode}
@@ -419,19 +424,42 @@ function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDar
             <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: darkMode ? "18px" : "2px" }} />
           </button>
         </div>
+
+        <div className="pt-3" style={{ borderTop: `1px solid ${chrome.cardBorder}` }}>
+          <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "languageLabel")}</p>
+          <p className="text-[12px] mt-0.5" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{t(lang, "languageHint")}</p>
+          <div className="flex gap-2 mt-2">
+            {LANGUAGES.map((opt) => {
+              const active = languagePref === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => onLanguageChange(opt.value)}
+                  className="px-3 py-1.5 rounded-full text-[12px] font-medium"
+                  style={{
+                    backgroundColor: active ? chrome.success : "transparent",
+                    color: active ? "#fff" : chrome.ink,
+                    border: `1px solid ${active ? chrome.success : chrome.divider}`,
+                  }}
+                >
+                  {opt.label || t(lang, opt.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="mt-3 p-4 rounded-lg space-y-3" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
         <div>
-          <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>Sezioni visibili</p>
-          <p className="text-[12px] mt-0.5" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>Nascondi le sezioni che non ti interessano</p>
+          <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "sectionsVisibleTitle")}</p>
+          <p className="text-[12px] mt-0.5" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{t(lang, "sectionsVisibleSubtitle")}</p>
         </div>
         {SECTION_ORDER.map((id) => {
-          const section = SECTIONS[id];
           const visible = !hiddenSections.includes(id);
           return (
             <div key={id} className="flex items-center justify-between text-[13px]" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>
-              {section.label}
+              {t(lang, `section.${id}`)}
               <button
                 onClick={() => onToggleSection(id)}
                 className="w-9 h-5 rounded-full relative shrink-0"
@@ -446,7 +474,7 @@ function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDar
 
       <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
         <p className="text-[12.5px]" style={{ color: chrome.ink, opacity: 0.7, fontFamily: "'Inter', sans-serif" }}>
-          Nessun contatore di "non letti": il giornale si aggiorna da solo, aprilo quando vuoi tu.
+          {t(lang, "noUnreadNote")}
         </p>
       </div>
 
@@ -458,7 +486,7 @@ function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDar
           className="text-[11px]"
           style={{ color: chrome.ink, opacity: 0.4, fontFamily: "'Inter', sans-serif" }}
         >
-          Realizzato da Andrea Corinti
+          {t(lang, "creditsLine")}
         </a>
       </div>
     </div>
@@ -470,6 +498,7 @@ export default function App() {
   const [sources, setSources] = useState({});
   const [hiddenSections, setHiddenSections] = useState(() => loadHiddenSections());
   const [darkMode, setDarkMode] = useState(() => loadDarkMode());
+  const [languagePref, setLanguagePref] = useState(() => loadLanguagePref());
   const [tab, setTab] = useState("front");
   const [activeSection, setActiveSection] = useState(FRONT_PAGE_ID);
   const [article, setArticle] = useState(false);
@@ -563,7 +592,13 @@ export default function App() {
     });
   }, []);
 
+  const changeLanguage = useCallback((value) => {
+    setLanguagePref(value);
+    saveLanguagePref(value);
+  }, []);
+
   const chrome = darkMode ? CHROME_DARK : CHROME_LIGHT;
+  const lang = useMemo(() => resolveLanguage(languagePref), [languagePref]);
 
   const anyReady = Object.values(sources).some((s) => s && (s.status === "ready" || s.status === "stale"));
 
@@ -594,14 +629,14 @@ export default function App() {
 
   const sectionTabs = useMemo(() => {
     const frontTemplate = resolveTemplate(TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
-    const tabs = [{ id: FRONT_PAGE_ID, label: "Prima Pagina", accent: frontTemplate.accent }];
+    const tabs = [{ id: FRONT_PAGE_ID, label: t(lang, "frontPage"), accent: frontTemplate.accent }];
     for (const id of visibleSections) {
       const meta = SECTIONS[id];
       const template = resolveTemplate(TEMPLATES[meta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
-      tabs.push({ id, label: meta.label, accent: template.accent });
+      tabs.push({ id, label: t(lang, `section.${id}`), accent: template.accent });
     }
     return tabs;
-  }, [visibleSections, darkMode]);
+  }, [visibleSections, darkMode, lang]);
 
   useEffect(() => {
     if (activeSection !== FRONT_PAGE_ID && !visibleSections.includes(activeSection)) {
@@ -618,17 +653,17 @@ export default function App() {
     const template = resolveTemplate(TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
     return {
       id: sectionMeta.id,
-      label: sectionMeta.label,
+      label: t(lang, sectionMeta.labelKey),
       accent: template.accent,
       paper: template.paper,
       ink: template.ink,
       mastheadStyle: template.mastheadStyle,
       headlineStyle: template.headlineStyle,
-      hero: composed.hero ? mapArticle(composed.hero, [900, 650]) : null,
-      secondary: composed.secondary.map((a) => mapArticle(a, [500, 400])),
+      hero: composed.hero ? mapArticle(composed.hero, [900, 650], lang) : null,
+      secondary: composed.secondary.map((a) => mapArticle(a, [500, 400], lang)),
       brief: composed.brief.map((a) => ({ title: a.title, tag: a.sourceName || "", link: a.link })),
     };
-  }, [activeSection, allArticles, sourceWeights, darkMode]);
+  }, [activeSection, allArticles, sourceWeights, darkMode, lang]);
 
   return (
     <div className="min-h-screen flex items-center justify-center py-8" style={{ backgroundColor: chrome.pageBg, fontFamily: "'Inter', sans-serif" }}>
@@ -642,63 +677,70 @@ export default function App() {
         {tab === "front" && !anyReady && (
           <div className="flex-1 flex items-center justify-center px-8 text-center">
             <p className="text-[13px]" style={{ color: chrome.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
-              {feedList.length === 0
-                ? "Nessun feed configurato. Aggiungine uno dalla scheda \"Feed\"."
-                : "Caricamento del giornale in corso…"}
+              {feedList.length === 0 ? t(lang, "emptyNoFeeds") : t(lang, "loadingPaper")}
             </p>
           </div>
         )}
 
         {tab === "front" && anyReady && !article && (
           <>
-            <Masthead view={currentView} onMenu={() => {}} />
+            <Masthead view={currentView} lang={lang} onMenu={() => {}} />
             <div className="px-5 flex gap-2 pb-3 overflow-x-auto">
-              {sectionTabs.map((t) => (
+              {sectionTabs.map((st) => (
                 <button
-                  key={t.id}
-                  onClick={() => { setActiveSection(t.id); setArticle(false); }}
+                  key={st.id}
+                  onClick={() => { setActiveSection(st.id); setArticle(false); }}
                   className="px-2.5 py-1 rounded-full text-[10.5px] font-semibold uppercase tracking-wide transition-colors shrink-0"
                   style={{
-                    backgroundColor: activeSection === t.id ? t.accent : "transparent",
-                    color: activeSection === t.id ? "#fff" : currentView.ink,
-                    opacity: activeSection === t.id ? 1 : 0.5,
-                    border: `1px solid ${activeSection === t.id ? t.accent : `${currentView.ink}33`}`,
+                    backgroundColor: activeSection === st.id ? st.accent : "transparent",
+                    color: activeSection === st.id ? "#fff" : currentView.ink,
+                    opacity: activeSection === st.id ? 1 : 0.5,
+                    border: `1px solid ${activeSection === st.id ? st.accent : `${currentView.ink}33`}`,
                   }}
                 >
-                  {t.label}
+                  {st.label}
                 </button>
               ))}
             </div>
             <div className="flex-1 overflow-y-auto">
-              <FrontPage view={currentView} onOpenArticle={() => setArticle(true)} />
+              <FrontPage view={currentView} lang={lang} onOpenArticle={() => setArticle(true)} />
             </div>
           </>
         )}
 
         {tab === "front" && anyReady && article && (
           <div className="flex-1 overflow-y-auto">
-            <ArticleView view={currentView} onBack={() => setArticle(false)} />
+            <ArticleView view={currentView} lang={lang} onBack={() => setArticle(false)} />
           </div>
         )}
 
         {tab === "feeds" && (
           <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
-            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onWeightChange={changeWeight} chrome={chrome} />
+            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
           </div>
         )}
 
         {tab === "settings" && (
           <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
-            <SettingsScreen hiddenSections={hiddenSections} onToggleSection={toggleSectionHidden} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} chrome={chrome} />
+            <SettingsScreen
+              hiddenSections={hiddenSections}
+              onToggleSection={toggleSectionHidden}
+              darkMode={darkMode}
+              onToggleDarkMode={toggleDarkMode}
+              languagePref={languagePref}
+              onLanguageChange={changeLanguage}
+              chrome={chrome}
+              lang={lang}
+            />
           </div>
         )}
 
         {/* Bottom nav */}
         <div className="flex items-center justify-around py-3 border-t" style={{ borderColor: chrome.navBorder, backgroundColor: chrome.navBg }}>
           {[
-            { id: "front", label: "Prima pagina", icon: Newspaper },
-            { id: "feeds", label: "Feed", icon: Rss },
-            { id: "settings", label: "Impostazioni", icon: Settings2 },
+            { id: "front", label: t(lang, "tabFront"), icon: Newspaper },
+            { id: "feeds", label: t(lang, "tabFeeds"), icon: Rss },
+            { id: "settings", label: t(lang, "tabSettings"), icon: Settings2 },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}

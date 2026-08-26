@@ -18,6 +18,8 @@ Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia, Gazze
 
 Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
 
+L'interfaccia è disponibile in italiano e inglese (le Impostazioni hanno un selettore Automatica/Italiano/English — "Automatica" segue la lingua del browser, l'equivalente web della lingua di sistema che leggerebbe un'app nativa Android/iOS). Cambia solo la lingua dell'interfaccia: i contenuti dei feed restano nella lingua originale della fonte. C'è anche una modalità notte, con un tema scuro dedicato per ognuno dei 4 stili editoriali.
+
 ### Avviare la demo in locale
 
 ```bash
@@ -45,12 +47,14 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Aggregazione multi-fonte in un giornale composto a sezioni tematiche, con peso fonte configurabile
 - [x] Libreria di un 4° template editoriale ("rivista", per Cultura/Gossip)
 - [x] Prima fonte in inglese per testare l'aggregazione multilingua (BBC News)
+- [x] Modalità notte (tema scuro per ognuno dei 4 template editoriali)
+- [x] Interfaccia in italiano/inglese, con rilevamento automatico della lingua (in ottica app nativa, dove verrebbe letta dal sistema)
 
 ### Piano per il futuro
 
 - [ ] Sezioni riordinabili dall'utente (oggi solo mostra/nascondi)
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso fonte)
-- [ ] Altre fonti EN di test e altre lingue oltre IT/EN
+- [ ] Altre fonti EN di test e altre lingue oltre IT/EN (interfaccia e contenuti)
 - [ ] App mobile (Flutter o React Native) con lettura offline
 - [ ] Build APK distribuita via GitHub Releases / F-Droid
 

@@ -4,18 +4,19 @@ export function stripHtml(html) {
   return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
 }
 
-export function relativeTime(dateStr) {
+export function relativeTime(dateStr, lang = "it") {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return "";
   const diffMs = Date.now() - d.getTime();
   const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "ora";
-  if (min < 60) return `${min} min fa`;
+  const isEn = lang === "en";
+  if (min < 1) return isEn ? "just now" : "ora";
+  if (min < 60) return isEn ? `${min} min ago` : `${min} min fa`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h} ${h === 1 ? "ora" : "ore"} fa`;
+  if (h < 24) return isEn ? `${h}h ago` : `${h} ${h === 1 ? "ora" : "ore"} fa`;
   const days = Math.floor(h / 24);
-  if (days < 7) return `${days} ${days === 1 ? "giorno" : "giorni"} fa`;
-  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+  if (days < 7) return isEn ? `${days}d ago` : `${days} ${days === 1 ? "giorno" : "giorni"} fa`;
+  return d.toLocaleDateString(isEn ? "en-GB" : "it-IT", { day: "numeric", month: "short" });
 }
 
 export function hashAccentColor(seed) {
