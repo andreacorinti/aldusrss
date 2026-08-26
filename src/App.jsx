@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
-import { fetchFeedXML, parseFeed } from "./lib/rss";
+import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
@@ -31,6 +31,20 @@ const WEIGHT_LEVELS = [
   { value: 1, labelKey: "weightNormal" },
   { value: 1.5, labelKey: "weightHigh" },
 ];
+
+// Accetta anche "corriere.it" oltre a un URL completo, per permettere di
+// incollare l'indirizzo di un sito (l'autodiscovery in addFeed troverà il feed).
+function normalizeUrl(input) {
+  try {
+    return new URL(input).href;
+  } catch {
+    try {
+      return new URL(`https://${input}`).href;
+    } catch {
+      return null;
+    }
+  }
+}
 
 function weightLabel(value, lang) {
   const level = WEIGHT_LEVELS.find((w) => w.value === value) || WEIGHT_LEVELS[1];
@@ -279,11 +293,10 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const url = urlInput.trim();
-    if (!url) return;
-    try {
-      new URL(url);
-    } catch {
+    const raw = urlInput.trim();
+    if (!raw) return;
+    const url = normalizeUrl(raw);
+    if (!url) {
       setAddError(t(lang, "errorInvalidUrl"));
       return;
     }
@@ -372,6 +385,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
               className="w-full text-[13px] px-2.5 py-2 rounded-md outline-none"
               style={{ backgroundColor: chrome.card, color: chrome.ink, border: `1px solid ${chrome.divider}` }}
             />
+            <p className="mt-1.5 text-[11px]" style={{ color: chrome.ink, opacity: 0.5 }}>{t(lang, "feedAddHint")}</p>
             {addError && <p className="mt-1.5 text-[11.5px]" style={{ color: chrome.danger }}>{addError}</p>}
             <div className="mt-2 flex gap-2">
               <button
@@ -535,7 +549,7 @@ export default function App() {
   const refreshSource = useCallback(async (feed) => {
     setSources((prev) => ({ ...prev, [feed.id]: { ...(prev[feed.id] || {}), id: feed.id, status: "loading" } }));
     try {
-      const xml = await fetchFeedXML(feed.url);
+      const xml = await fetchTextWithFallback(feed.url);
       const parsed = parseFeed(xml);
       const articles = parsed.articles.map((a) => ({ ...a, section: assignSection(a) }));
       const data = {
@@ -561,7 +575,21 @@ export default function App() {
 
   const addFeed = useCallback(async (url) => {
     const id = crypto.randomUUID();
-    const newFeed = { id, url, enabled: true, weight: 1 };
+    let feedUrl = url;
+    try {
+      parseFeed(await fetchTextWithFallback(url));
+    } catch {
+      // non è un feed diretto: prova a scoprirlo dall'<head> della pagina
+      // (autodiscovery standard, es. <link rel="alternate" type="application/rss+xml">)
+      try {
+        const discovered = await discoverFeedUrl(url);
+        if (discovered) feedUrl = discovered;
+      } catch {
+        // nessuna autodiscovery riuscita: si tenta comunque con l'url originale,
+        // refreshSource mostrerà un errore chiaro se non è un feed valido
+      }
+    }
+    const newFeed = { id, url: feedUrl, enabled: true, weight: 1 };
     setFeedList((prev) => {
       const next = [...prev, newFeed];
       saveFeedList(next);

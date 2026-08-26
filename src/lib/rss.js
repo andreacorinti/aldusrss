@@ -21,7 +21,9 @@ async function fetchWithTimeout(url) {
   }
 }
 
-export async function fetchFeedXML(url) {
+// Fetch generico con fallback sui proxy CORS: usato sia per scaricare l'XML di
+// un feed sia (per l'autodiscovery) per scaricare l'HTML di una pagina.
+export async function fetchTextWithFallback(url) {
   try {
     const res = await fetchWithTimeout(url);
     if (res.ok) return await res.text();
@@ -29,7 +31,7 @@ export async function fetchFeedXML(url) {
     // niente CORS (o timeout) sulla fonte diretta: si prova con i proxy qui sotto
   }
 
-  let lastError = new Error("Impossibile scaricare il feed");
+  let lastError = new Error("Impossibile scaricare la risorsa");
   for (const buildProxyUrl of CORS_PROXIES) {
     try {
       const res = await fetchWithTimeout(buildProxyUrl(url));
@@ -39,7 +41,7 @@ export async function fetchFeedXML(url) {
       lastError = err;
     }
   }
-  throw new Error(`Impossibile scaricare il feed: nessuna fonte raggiungibile (${lastError.message})`);
+  throw new Error(`Impossibile scaricare la risorsa: nessuna fonte raggiungibile (${lastError.message})`);
 }
 
 function firstTag(el, names) {
@@ -152,4 +154,28 @@ export function parseFeed(xmlText) {
   else if (doc.querySelector("channel")) parsed = parseRss(doc);
   else throw new Error("Formato feed non riconosciuto (né RSS né Atom)");
   return { ...parsed, articles: dropRepeatedImages(parsed.articles) };
+}
+
+// Autodiscovery: molti siti non espongono direttamente l'URL del feed, ma lo
+// dichiarano nell'<head> della homepage con <link rel="alternate" type="...">
+// (lo standard usato da tutti i lettori RSS per il tasto "aggiungi da sito").
+// Così l'utente può incollare l'indirizzo del sito invece di dover cercare e
+// copiare l'URL del feed a mano.
+export async function discoverFeedUrl(pageUrl) {
+  const html = await fetchTextWithFallback(pageUrl);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const links = Array.from(doc.querySelectorAll('link[rel="alternate"]')).filter((el) => {
+    const type = (el.getAttribute("type") || "").toLowerCase();
+    return type.includes("rss") || type.includes("atom");
+  });
+  for (const el of links) {
+    const href = el.getAttribute("href");
+    if (!href) continue;
+    try {
+      return new URL(href, pageUrl).href;
+    } catch {
+      // href malformato, prova il prossimo candidato
+    }
+  }
+  return null;
 }

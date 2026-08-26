@@ -16,7 +16,9 @@ Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia, Gazze
 - **Tecnologia** — layout più visuale, masthead in corsivo ("magazine")
 - **Cultura, Gossip** — masthead elegante in corsivo ("rivista")
 
-Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
+Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile e riordinabile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
+
+Per aggiungere una fonte non serve trovare e incollare l'URL esatto del feed: basta l'indirizzo del sito (es. `corriere.it`) e AldusRSS prova a scoprire da solo il feed collegato, leggendo il tag standard che il sito stesso dichiara nella pagina (lo stesso meccanismo di "autodiscovery" usato da tutti i lettori RSS). Se il sito non lo dichiara, o se la pagina è troppo pesante per i proxy CORS pubblici, resta comunque possibile incollare il link diretto al feed.
 
 L'interfaccia è disponibile in italiano e inglese (le Impostazioni hanno un selettore Automatica/Italiano/English — "Automatica" segue la lingua del browser, l'equivalente web della lingua di sistema che leggerebbe un'app nativa Android/iOS). Cambia solo la lingua dell'interfaccia: i contenuti dei feed restano nella lingua originale della fonte. C'è anche una modalità notte, con un tema scuro dedicato per ognuno dei 4 stili editoriali.
 
@@ -36,6 +38,7 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 ## Limiti noti
 
 - **Proxy CORS**: molti feed non inviano header `Access-Control-Allow-Origin`, quindi il browser non può scaricarli direttamente. Il prototipo prova prima il fetch diretto e, se fallisce, ricade su una catena di proxy CORS pubblici (con timeout per tentativo, così uno "appeso" non blocca gli altri) — un workaround client-side best-effort, non un'infrastruttura nostra. L'elenco è isolato in `src/lib/rss.js` ed è facile da estendere. Il problema sparirà passando a un'app nativa (fetch senza restrizioni CORS).
+- **Autodiscovery del feed da un sito**: stesso meccanismo e stessi limiti del punto sopra, aggravati dal fatto che una homepage pesa in genere molto più di un feed XML (verificato: 1MB+ per diverse testate) — i proxy CORS pubblici gratuiti spesso rifiutano payload di quella dimensione. Funziona in modo affidabile quando il sito invia header CORS permissivi anche sulla homepage (raro) o quando la pagina è leggera; altrimenti va ancora incollato il link diretto al feed.
 - **Corpo articolo**: molti feed pubblicano solo un riassunto, non il testo integrale. La vista articolo mostra quello che il feed fornisce, con un link "Leggi l'articolo originale" verso la fonte.
 - **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi.
 - **Ranking di Prima Pagina**: solo recency × peso fonte configurabile, non un vero giudizio editoriale su cosa sia importante (l'"importanza" di una notizia resta indecidibile in automatico).
@@ -47,14 +50,16 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Aggregazione multi-fonte in un giornale composto a sezioni tematiche, con peso fonte configurabile
 - [x] Libreria di un 4° template editoriale ("rivista", per Cultura/Gossip)
 - [x] Prima fonte in inglese per testare l'aggregazione multilingua (BBC News)
-- [x] Modalità notte (tema scuro per ognuno dei 4 template editoriali)
+- [x] Modalità notte (tema scuro per ognuno dei 4 template editoriali, segue il sistema finché non la imposti tu)
 - [x] Interfaccia in italiano/inglese, con rilevamento automatico della lingua (in ottica app nativa, dove verrebbe letta dal sistema)
+- [x] Sezioni riordinabili dall'utente, oltre a mostra/nascondi
+- [x] Autodiscovery del feed a partire dall'indirizzo di un sito, invece di dover copiare l'URL esatto del feed
 
 ### Piano per il futuro
 
-- [ ] Sezioni riordinabili dall'utente (oggi solo mostra/nascondi)
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso fonte)
 - [ ] Altre fonti EN di test e altre lingue oltre IT/EN (interfaccia e contenuti)
+- [ ] Motore di ricerca feed più ampio (oltre l'autodiscovery da un sito già noto) — richiederebbe un servizio esterno terzo, da valutare con calma
 - [ ] App mobile (Flutter o React Native) con lettura offline
 - [ ] Build APK distribuita via GitHub Releases / F-Droid
 
