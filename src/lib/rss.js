@@ -1,15 +1,45 @@
-const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+// Proxy CORS pubblici di fallback, provati in ordine finché uno risponde.
+// Nessuno è garantito: sono servizi di terzi best-effort, non un'infrastruttura
+// nostra (vedi README, sezione "Limiti noti").
+const CORS_PROXIES = [
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+];
+
+const FETCH_TIMEOUT_MS = 6000;
+
+// Un proxy pubblico può restare "appeso" senza rispondere né fallire: senza un
+// timeout per tentativo, la catena si blocca sul primo e non arriva mai a
+// provare gli altri.
+async function fetchWithTimeout(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function fetchFeedXML(url) {
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
+    const res = await fetchWithTimeout(url);
+    if (res.ok) return await res.text();
   } catch {
-    const res = await fetch(CORS_PROXY + encodeURIComponent(url));
-    if (!res.ok) throw new Error(`Impossibile scaricare il feed (HTTP ${res.status})`);
-    return await res.text();
+    // niente CORS (o timeout) sulla fonte diretta: si prova con i proxy qui sotto
   }
+
+  let lastError = new Error("Impossibile scaricare il feed");
+  for (const buildProxyUrl of CORS_PROXIES) {
+    try {
+      const res = await fetchWithTimeout(buildProxyUrl(url));
+      if (res.ok) return await res.text();
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(`Impossibile scaricare il feed: nessuna fonte raggiungibile (${lastError.message})`);
 }
 
 function firstTag(el, names) {
