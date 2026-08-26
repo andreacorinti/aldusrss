@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon } from "lucide-react";
+import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
 import { fetchFeedXML, parseFeed } from "./lib/rss";
 import { assignSection, composeArticles } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
-import { SECTIONS, SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
+import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
 import { stripHtml, relativeTime, placeholderImage } from "./lib/format";
 import { LANGUAGES, resolveLanguage, t } from "./lib/i18n";
 import {
@@ -14,6 +14,8 @@ import {
   removeSourceCache,
   loadHiddenSections,
   saveHiddenSections,
+  loadSectionOrderPref,
+  saveSectionOrderPref,
   loadDarkMode,
   saveDarkMode,
   loadLanguagePref,
@@ -405,7 +407,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
   );
 }
 
-function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDarkMode, languagePref, onLanguageChange, chrome, lang }) {
+function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onMoveSection, darkMode, onToggleDarkMode, languagePref, onLanguageChange, chrome, lang }) {
   return (
     <div className="px-5 pt-4 pb-8">
       <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>{t(lang, "tabSettings")}</h2>
@@ -455,11 +457,31 @@ function SettingsScreen({ hiddenSections, onToggleSection, darkMode, onToggleDar
           <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "sectionsVisibleTitle")}</p>
           <p className="text-[12px] mt-0.5" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{t(lang, "sectionsVisibleSubtitle")}</p>
         </div>
-        {SECTION_ORDER.map((id) => {
+        {sectionOrder.map((id, idx) => {
           const visible = !hiddenSections.includes(id);
           return (
             <div key={id} className="flex items-center justify-between text-[13px]" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>
-              {t(lang, `section.${id}`)}
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col -my-1">
+                  <button
+                    onClick={() => onMoveSection(id, -1)}
+                    disabled={idx === 0}
+                    aria-label={t(lang, "sectionMoveUp")}
+                    style={{ opacity: idx === 0 ? 0.25 : 0.7 }}
+                  >
+                    <ChevronUp size={13} color={chrome.ink} />
+                  </button>
+                  <button
+                    onClick={() => onMoveSection(id, 1)}
+                    disabled={idx === sectionOrder.length - 1}
+                    aria-label={t(lang, "sectionMoveDown")}
+                    style={{ opacity: idx === sectionOrder.length - 1 ? 0.25 : 0.7 }}
+                  >
+                    <ChevronDown size={13} color={chrome.ink} />
+                  </button>
+                </div>
+                <span>{t(lang, `section.${id}`)}</span>
+              </div>
               <button
                 onClick={() => onToggleSection(id)}
                 className="w-9 h-5 rounded-full relative shrink-0"
@@ -497,6 +519,13 @@ export default function App() {
   const [feedList, setFeedList] = useState(() => loadFeedList());
   const [sources, setSources] = useState({});
   const [hiddenSections, setHiddenSections] = useState(() => loadHiddenSections());
+  const [sectionOrder, setSectionOrder] = useState(() => {
+    const stored = loadSectionOrderPref();
+    if (!stored) return DEFAULT_SECTION_ORDER;
+    const valid = stored.filter((id) => SECTIONS[id]);
+    const missing = DEFAULT_SECTION_ORDER.filter((id) => !valid.includes(id));
+    return [...valid, ...missing];
+  });
   const [darkMode, setDarkMode] = useState(() => loadDarkMode());
   const [languagePref, setLanguagePref] = useState(() => loadLanguagePref());
   const [tab, setTab] = useState("front");
@@ -584,6 +613,18 @@ export default function App() {
     });
   }, []);
 
+  const moveSection = useCallback((id, direction) => {
+    setSectionOrder((prev) => {
+      const idx = prev.indexOf(id);
+      const swapWith = idx + direction;
+      if (idx < 0 || swapWith < 0 || swapWith >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
+      saveSectionOrderPref(next);
+      return next;
+    });
+  }, []);
+
   const toggleDarkMode = useCallback(() => {
     setDarkMode((prev) => {
       const next = !prev;
@@ -624,8 +665,8 @@ export default function App() {
 
   const visibleSections = useMemo(() => {
     const present = new Set(allArticles.map((a) => a.section));
-    return SECTION_ORDER.filter((id) => present.has(id) && !hiddenSections.includes(id));
-  }, [allArticles, hiddenSections]);
+    return sectionOrder.filter((id) => present.has(id) && !hiddenSections.includes(id));
+  }, [allArticles, hiddenSections, sectionOrder]);
 
   const sectionTabs = useMemo(() => {
     const frontTemplate = resolveTemplate(TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
@@ -725,6 +766,8 @@ export default function App() {
             <SettingsScreen
               hiddenSections={hiddenSections}
               onToggleSection={toggleSectionHidden}
+              sectionOrder={sectionOrder}
+              onMoveSection={moveSection}
               darkMode={darkMode}
               onToggleDarkMode={toggleDarkMode}
               languagePref={languagePref}

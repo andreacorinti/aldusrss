@@ -1,6 +1,7 @@
 const FEEDS_KEY = "aldusrss.feeds";
 const CACHE_KEY = "aldusrss.cache";
 const HIDDEN_SECTIONS_KEY = "aldusrss.hiddenSections";
+const SECTION_ORDER_KEY = "aldusrss.sectionOrder";
 const DARK_MODE_KEY = "aldusrss.darkMode";
 const LANGUAGE_KEY = "aldusrss.language";
 
@@ -75,6 +76,25 @@ export function loadHiddenSections() {
 export function saveHiddenSections(hiddenIds) {
   try {
     localStorage.setItem(HIDDEN_SECTIONS_KEY, JSON.stringify(hiddenIds));
+  } catch {
+    // ignora
+  }
+}
+
+// null = nessuna preferenza salvata, usa l'ordine di default di sections.js.
+export function loadSectionOrderPref() {
+  try {
+    const raw = localStorage.getItem(SECTION_ORDER_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSectionOrderPref(order) {
+  try {
+    localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(order));
   } catch {
     // ignora
   }
