@@ -129,10 +129,27 @@ function parseAtom(doc) {
   return { title, description, link, articles };
 }
 
+// Alcuni feed (es. Gazzetta dello Sport) riusano la stessa immagine "di
+// categoria/giornata" su decine di articoli quando non hanno una foto propria
+// per quell'articolo. Trattarla come reale produce hero/gallerie con la stessa
+// foto ripetuta più volte: se un'immagine compare più di una volta nello stesso
+// feed, non è specifica di un articolo, quindi la scartiamo (l'articolo ricade
+// sul placeholder seedato in App.jsx).
+function dropRepeatedImages(articles) {
+  const counts = new Map();
+  for (const a of articles) {
+    if (!a.image) continue;
+    counts.set(a.image, (counts.get(a.image) || 0) + 1);
+  }
+  return articles.map((a) => (a.image && counts.get(a.image) > 1 ? { ...a, image: null } : a));
+}
+
 export function parseFeed(xmlText) {
   const doc = new DOMParser().parseFromString(xmlText, "application/xml");
   if (doc.querySelector("parsererror")) throw new Error("Il feed non è un XML valido");
-  if (doc.querySelector("feed")) return parseAtom(doc);
-  if (doc.querySelector("channel")) return parseRss(doc);
-  throw new Error("Formato feed non riconosciuto (né RSS né Atom)");
+  let parsed;
+  if (doc.querySelector("feed")) parsed = parseAtom(doc);
+  else if (doc.querySelector("channel")) parsed = parseRss(doc);
+  else throw new Error("Formato feed non riconosciuto (né RSS né Atom)");
+  return { ...parsed, articles: dropRepeatedImages(parsed.articles) };
 }
