@@ -101,18 +101,16 @@ export function isFresh(article) {
   return (Date.now() - t) / 3600000 <= FRESH_WINDOW_HOURS;
 }
 
-// `diversify` limita quante ne può piazzare una singola fonte: senza, una
-// fonte molto prolifica può monopolizzare non solo hero+secondaria ma
-// perfino "in breve", rendendo Prima Pagina indistinguibile dalla sezione
-// generalista di quella fonte (visto e verificato con più fonti diverse: ANSA
-// quando non porta categorie, poi Sky Sport che pubblica più volte ogni 10
-// minuti). Un tetto di 1 anche per "in breve" (prima erano 2) tiene Prima
-// Pagina più rappresentativa dell'insieme delle fonti invece che dominata
-// da chi semplicemente pubblica più spesso — con più fonti di default che in
-// passato, 2 su 6 voci di un riepilogo di 6 pesava troppo. Ha senso solo per
-// Prima Pagina: dentro una singola sezione tematica è normale — anzi atteso
-// — che più articoli della stessa fonte compaiano insieme.
-const BRIEF_MAX_PER_SOURCE = 1;
+// `diversify` limita quante ne può piazzare una singola fonte in totale
+// (hero+secondaria+in breve insieme): senza, una fonte molto prolifica può
+// monopolizzare Prima Pagina, rendendola indistinguibile dalla sezione
+// generalista di quella fonte (visto e verificato con più fonti diverse:
+// ANSA quando non porta categorie, poi Sky Sport che pubblica più volte
+// ogni 10 minuti). Tetto unico per l'intera vetrina, non solo "in breve":
+// dentro una singola sezione tematica invece è normale — anzi atteso — che
+// più articoli della stessa fonte compaiano insieme, quindi si applica solo
+// con `diversify` (Prima Pagina).
+const MAX_PER_SOURCE_FRONT_PAGE = 2;
 
 function bucketArticles(sorted, { diversify = false } = {}) {
   if (sorted.length === 0) return { hero: null, secondary: [], brief: [], stale: false };
@@ -157,7 +155,7 @@ function bucketArticles(sorted, { diversify = false } = {}) {
     if (secondary.length >= 3) break;
     if (!a.image) continue;
     if (diversify && !freshIds.has(a.id)) continue;
-    if (diversify && sourceCounts.has(a.sourceId)) continue;
+    if (diversify && (sourceCounts.get(a.sourceId) || 0) >= MAX_PER_SOURCE_FRONT_PAGE) continue;
     secondary.push(a);
     sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);
   }
@@ -169,7 +167,7 @@ function bucketArticles(sorted, { diversify = false } = {}) {
     if (brief.length >= 6) break;
     if (diversify) {
       const count = sourceCounts.get(a.sourceId) || 0;
-      if (count >= BRIEF_MAX_PER_SOURCE) continue;
+      if (count >= MAX_PER_SOURCE_FRONT_PAGE) continue;
       sourceCounts.set(a.sourceId, count + 1);
     }
     brief.push(a);

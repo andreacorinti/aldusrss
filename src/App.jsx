@@ -599,7 +599,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-[13.5px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>
-                          {t(lang, `section.${pack.sectionId}`)}
+                          {pack.label[lang] || pack.label.it}
                         </p>
                         <p className="text-[11px] truncate" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
                           {pack.feeds.map((f) => f.label).join(" · ")}

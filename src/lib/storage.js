@@ -40,9 +40,14 @@ const LANGUAGE_KEY = "aldusrss.language";
 // in UI (es. DDay.it si dichiara "DDay.it, news, articoli, guide, gallery
 // e video", ANSA Economia "RSS di Economia - ANSA.it"). Preferito a
 // `feedMeta.title` quando presente, vedi App.jsx.
+//
+// Wired Italia tolta dai default: il suo feed resta cronicamente indietro
+// di settimane lato editore (segnalato più volte dall'utente testando),
+// mostrando sempre l'avviso "raggiungibile ma senza notizie recenti
+// pubblicate" nella scheda Feed. Resta comunque nel pacchetto curato
+// Tecnologia per chi la vuole comunque (curatedFeeds.js).
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1, label: "ANSA" },
-  { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1, label: "Wired Italia" },
   // Peso ridotto di default: pubblica molto più spesso delle altre fonti
   // (anche più volte ogni 10 minuti), quindi in un ranking a sola recency
   // vince quasi sempre il turno anche con notizie sportive minori (es. le

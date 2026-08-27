@@ -53,6 +53,7 @@ export const SECTIONS = {
       "cultura", "arte", "cinema", "libri", "musica", "teatro",
       "culture", "arts", "film", "books",
       "spettacolo", "spettacoli", "entertainment", "celebrity",
+      "anime", "manga", "manhwa", "cosplay",
     ],
   },
 };

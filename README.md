@@ -10,7 +10,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 ## Come funziona
 
-Carica feed RSS/Atom reali — di default ANSA, Wired Italia, Sky Sport, DDay.it, Il Sole 24 Ore, RaiNews e Sky TG24 (modificabili dalla scheda "Feed") — ne unisce gli articoli e li smista automaticamente in sezioni:
+Carica feed RSS/Atom reali — di default ANSA, Sky Sport, DDay.it, Il Sole 24 Ore, RaiNews e Sky TG24 (modificabili dalla scheda "Feed") — ne unisce gli articoli e li smista automaticamente in sezioni:
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni, con priorità a cronaca/economia sull'apertura come in un vero giornale
 - **Attualità, Economia** — impaginazione classica ("quotidiano")
@@ -21,7 +21,7 @@ Carica feed RSS/Atom reali — di default ANSA, Wired Italia, Sky Sport, DDay.it
 Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile e riordinabile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
 
 Altre funzioni:
-- **"Scopri fonti consigliate"** (scheda Feed): pacchetti di feed verificati per tema, da aggiungere in blocco (`src/lib/curatedFeeds.js`)
+- **"Scopri fonti consigliate"** (scheda Feed): pacchetti di feed verificati per tema, da aggiungere in blocco (`src/lib/curatedFeeds.js`) — oltre alle sezioni dell'app, anche fonti in inglese (BBC, Guardian, NPR) e due pacchetti "nerd" (videogiochi, anime, manga) in italiano e in inglese
 - **Autodiscovery**: aggiungi una fonte con il solo indirizzo del sito (es. `corriere.it`), non serve l'URL esatto del feed
 - **Peso per fonte**: quanto spesso una fonte compare in evidenza in Prima Pagina (Basso/Normale/Alto)
 - **Italiano/Inglese** con rilevamento automatico, **modalità notte** dedicata per ogni template
@@ -69,13 +69,13 @@ I lettori RSS esistenti mostrano tutte le fonti con lo stesso template a card, o
 
 ## Roadmap
 
-**Fatto**: parsing RSS/Atom reale, aggregazione multi-fonte a sezioni tematiche con peso configurabile e pacchetti di feed curati da importare in blocco, 4 template editoriali con modalità notte, interfaccia IT/EN, autodiscovery feed da sito, sezioni riordinabili, app Android (Capacitor) con icona dedicata, aggiornamento a trascinamento, build di release firmata pronta per sideload/Play Store.
+**Fatto**: parsing RSS/Atom reale, aggregazione multi-fonte a sezioni tematiche con peso configurabile e tetto massimo di 2 articoli per fonte in Prima Pagina, pacchetti di feed curati da importare in blocco (incluse fonti in inglese e due pacchetti "nerd" videogiochi/anime/manga), 4 template editoriali con modalità notte, interfaccia IT/EN, autodiscovery feed da sito, sezioni riordinabili, app Android (Capacitor) con icona dedicata, aggiornamento a trascinamento, build di release firmata pronta per sideload/Play Store.
 
 **Prossimi passi**:
 - [ ] Pubblicazione su Play Store (account verificato, configurazione pronta — vedi `docs/store/`) e valutazione F-Droid
 - [ ] Splash screen dedicato (oggi quello di default di Capacitor)
 - [ ] Menù hamburger in alto a sinistra senza funzione: dargli uno scopo reale o rimuoverlo
-- [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — l'aggregazione multilingua è già pronta e testata, da ripensare con calma
+- [ ] Strategia per un pubblico internazionale più ampia (oltre il pacchetto fonti in inglese già disponibile) — da ripensare con calma
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso + fattore sezione)
 - [ ] Motore di ricerca feed più ampio (oltre l'autodiscovery da un sito già noto) — richiederebbe un servizio esterno terzo
 - [ ] App desktop Windows/Linux/macOS via **Tauri**, poi iOS — dopo Android
