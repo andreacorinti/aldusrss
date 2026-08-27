@@ -106,11 +106,26 @@ export function isFresh(article) {
 // monopolizzare Prima Pagina, rendendola indistinguibile dalla sezione
 // generalista di quella fonte (visto e verificato con più fonti diverse:
 // ANSA quando non porta categorie, poi Sky Sport che pubblica più volte
-// ogni 10 minuti). Tetto unico per l'intera vetrina, non solo "in breve":
-// dentro una singola sezione tematica invece è normale — anzi atteso — che
-// più articoli della stessa fonte compaiano insieme, quindi si applica solo
-// con `diversify` (Prima Pagina).
+// ogni 10 minuti).
 const MAX_PER_SOURCE_FRONT_PAGE = 2;
+
+// Stesso principio, ma per sezione tematica invece che per fonte: senza,
+// la vetrina di Prima Pagina finiva per assomigliare troppo alla sola
+// sezione più numerosa (quasi sempre Attualità, la sezione di fallback per
+// chi non ha una categoria specifica), perché il punteggio da solo premia
+// naturalmente chi pubblica di più — non chi rappresenta meglio le diverse
+// rubriche di un giornale vero (segnalato dall'utente dopo il primo giro
+// di test). Vedi il "primo giro" qui sotto in `bucketArticles`.
+const MAX_PER_SECTION_FRONT_PAGE = 3;
+
+// Fuori da Prima Pagina un tetto per fonte ha comunque senso — stesso
+// problema di monopolio, stavolta dentro la singola sezione tematica invece
+// che nella vetrina — MA solo se quella sezione è alimentata da più fonti
+// distinte: con una sola fonte (es. Sport finché l'unica fonte sportiva
+// abilitata è Sky Sport) il tetto ridurrebbe artificialmente quanto viene
+// mostrato senza alcun beneficio di varietà, dato che non c'è nient'altro
+// da cui pescare.
+const MAX_PER_SOURCE_SECTION = 4;
 
 function bucketArticles(sorted, { diversify = false } = {}) {
   if (sorted.length === 0) return { hero: null, secondary: [], brief: [], stale: false };
@@ -149,27 +164,67 @@ function bucketArticles(sorted, { diversify = false } = {}) {
   // meglio una riga più corta che una notizia di settimane fa in prima fila.
   // "In breve" resta più permissivo (vedi sopra).
   const freshIds = new Set(fresh.map((a) => a.id));
+
+  // Fuori da Prima Pagina il tetto per fonte si applica solo se la sezione
+  // ha davvero più fonti tra cui scegliere (vedi MAX_PER_SOURCE_SECTION).
+  const distinctSources = new Set(pool.map((a) => a.sourceId)).size;
+  const applySourceCap = diversify || distinctSources > 1;
+  const sourceCap = diversify ? MAX_PER_SOURCE_FRONT_PAGE : MAX_PER_SOURCE_SECTION;
+
   const sourceCounts = new Map([[hero.sourceId, 1]]);
+  const sectionCounts = new Map([[hero.section, 1]]);
   const secondary = [];
-  for (const a of rest) {
-    if (secondary.length >= 3) break;
-    if (!a.image) continue;
-    if (diversify && !freshIds.has(a.id)) continue;
-    if (diversify && (sourceCounts.get(a.sourceId) || 0) >= MAX_PER_SOURCE_FRONT_PAGE) continue;
-    secondary.push(a);
-    sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);
+
+  // Primo giro (solo Prima Pagina): prende il pezzo migliore di ogni sezione
+  // diversa da quella dell'hero, come farebbe un caporedattore che spartisce
+  // lo spazio in prima pagina tra le rubriche — invece di lasciare che il
+  // solo punteggio (che premia naturalmente la sezione più prolifica, quasi
+  // sempre Attualità) riempia la vetrina con un'unica sezione. Rispetta
+  // comunque il tetto per fonte: senza, una fonte molto prolifica che vince
+  // il punteggio più alto in più sezioni diverse (capitato con The Guardian,
+  // che pubblica spesso) tornava a monopolizzare la vetrina esattamente come
+  // prima, solo "mascherata" da sezioni diverse invece che dalla stessa.
+  if (diversify) {
+    const sectionsSeen = new Set([hero.section]);
+    for (const a of rest) {
+      if (secondary.length >= 3) break;
+      if (!a.image) continue;
+      if (!freshIds.has(a.id)) continue;
+      if (sectionsSeen.has(a.section)) continue;
+      if (applySourceCap && (sourceCounts.get(a.sourceId) || 0) >= sourceCap) continue;
+      secondary.push(a);
+      sectionsSeen.add(a.section);
+      sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);
+      sectionCounts.set(a.section, (sectionCounts.get(a.section) || 0) + 1);
+    }
   }
 
+  // Secondo giro: riempie gli slot rimasti per punteggio, rispettando il
+  // tetto per fonte (sempre, quando applicabile) e per sezione (solo Prima
+  // Pagina — dentro una singola sezione tematica è normale che più articoli
+  // condividano la stessa sezione, è letteralmente la sezione aperta).
   const secondaryIds = new Set(secondary.map((a) => a.id));
+  for (const a of rest) {
+    if (secondary.length >= 3) break;
+    if (secondaryIds.has(a.id)) continue;
+    if (!a.image) continue;
+    if (diversify && !freshIds.has(a.id)) continue;
+    if (applySourceCap && (sourceCounts.get(a.sourceId) || 0) >= sourceCap) continue;
+    if (diversify && (sectionCounts.get(a.section) || 0) >= MAX_PER_SECTION_FRONT_PAGE) continue;
+    secondary.push(a);
+    secondaryIds.add(a.id);
+    sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);
+    sectionCounts.set(a.section, (sectionCounts.get(a.section) || 0) + 1);
+  }
+
   const briefCandidates = rest.filter((a) => !secondaryIds.has(a.id));
   const brief = [];
   for (const a of briefCandidates) {
     if (brief.length >= 6) break;
-    if (diversify) {
-      const count = sourceCounts.get(a.sourceId) || 0;
-      if (count >= MAX_PER_SOURCE_FRONT_PAGE) continue;
-      sourceCounts.set(a.sourceId, count + 1);
-    }
+    if (applySourceCap && (sourceCounts.get(a.sourceId) || 0) >= sourceCap) continue;
+    if (diversify && (sectionCounts.get(a.section) || 0) >= MAX_PER_SECTION_FRONT_PAGE) continue;
+    sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);
+    sectionCounts.set(a.section, (sectionCounts.get(a.section) || 0) + 1);
     brief.push(a);
   }
 

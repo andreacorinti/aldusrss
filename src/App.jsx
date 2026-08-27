@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
-import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
+import { fetchTextWithFallback, parseFeed, discoverFeedUrl, runWithConcurrency } from "./lib/rss";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
@@ -32,6 +32,12 @@ const FONTS = `
 // telefono reale: quella cornice andrebbe a creare un "telefono nel
 // telefono" — va tolta, il contenuto occupa tutto lo schermo.
 const IS_NATIVE = Capacitor.isNativePlatform();
+
+// Quante fonti aggiornare in parallelo (vedi runWithConcurrency in rss.js):
+// abbastanza per restare veloci con poche fonti, abbastanza poco da non
+// sovraccaricare i due proxy CORS pubblici e gratuiti quando le fonti sono
+// molte.
+const REFRESH_CONCURRENCY = 3;
 
 const WEIGHT_LEVELS = [
   { value: 0.5, labelKey: "weightLow" },
@@ -844,12 +850,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    feedList.forEach((f) => refreshSource(f));
+    runWithConcurrency(feedList, REFRESH_CONCURRENCY, refreshSource);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshAllFeeds = useCallback(() => {
-    feedList.forEach((f) => refreshSource(f));
+    runWithConcurrency(feedList, REFRESH_CONCURRENCY, refreshSource);
   }, [feedList, refreshSource]);
 
   // Importa in blocco un pacchetto di fonti curate (curatedFeeds.js): gli
@@ -872,7 +878,7 @@ export default function App() {
       saveFeedList(next);
       return next;
     });
-    await Promise.all(newFeeds.map((f) => refreshSource(f)));
+    await runWithConcurrency(newFeeds, REFRESH_CONCURRENCY, refreshSource);
   }, [feedList, refreshSource]);
 
   // Aggiunge una fonte solo se si riesce davvero a scaricarla e a leggerla

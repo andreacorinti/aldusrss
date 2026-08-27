@@ -85,9 +85,15 @@ export const CURATED_PACKS = [
     feeds: [
       { id: "kotaku", url: "https://kotaku.com/feed", label: "Kotaku", weight: 1, sectionHint: "tecnologia" },
       // Polygon tolta: nessun header CORS sul feed e i proxy pubblici
-      // falliscono comunque su quel dominio (segnalato dall'utente:
-      // "failed to fetch" persistente) — sostituita con PCGamer.
-      { id: "pcgamer", url: "https://www.pcgamer.com/rss/", label: "PCGamer", weight: 1, sectionHint: "tecnologia" },
+      // falliscono comunque su quel dominio ("failed to fetch" persistente).
+      // Sostituita con PCGamer, poi anche questa segnalata in errore
+      // dall'utente: il dominio (Future plc, come GamesRadar) è dietro una
+      // protezione anti-bot che sembra bloccare selettivamente gli IP dei
+      // proxy CORS pubblici usati dall'app — non un problema temporaneo dei
+      // proxy stessi (verificato: altri feed passavano nello stesso momento).
+      // IGN è una fonte grande e comune, storicamente ben servita dagli
+      // stessi proxy.
+      { id: "ign", url: "https://www.ign.com/rss/articles/feed", label: "IGN", weight: 1, sectionHint: "tecnologia" },
       { id: "eurogamer", url: "https://www.eurogamer.net/feed", label: "Eurogamer", weight: 1, sectionHint: "tecnologia" },
       { id: "ann", url: "https://www.animenewsnetwork.com/all/rss.xml", label: "Anime News Network", weight: 1, sectionHint: "cultura" },
     ],
