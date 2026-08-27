@@ -76,7 +76,8 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] BBC News tolta dalle fonti di default (solo italiane per ora)
 - [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — da ripensare con calma, non di corsa
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
-- [ ] Icona e splash screen dedicati (oggi quelli di default di Capacitor)
+- [x] Icona app dedicata (monogramma "A" in Fraunces su rosso, coerente col masthead)
+- [ ] Splash screen dedicato (oggi quello di default di Capacitor)
 - [ ] APK firmato e distribuito via GitHub Releases / F-Droid
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso fonte)
 - [ ] Altre fonti EN di test e altre lingue oltre IT/EN (interfaccia e contenuti)
