@@ -69,6 +69,16 @@ function mapArticle(a, size, lang) {
   };
 }
 
+async function loadFeedData(url) {
+  const xml = await fetchTextWithFallback(url);
+  const parsed = parseFeed(xml);
+  const articles = parsed.articles.map((a) => ({ ...a, section: assignSection(a) }));
+  return {
+    feedMeta: { title: parsed.title, description: parsed.description, link: parsed.link },
+    articles,
+  };
+}
+
 function buildSectionMeta(id) {
   if (id === FRONT_PAGE_ID) return { id: FRONT_PAGE_ID, labelKey: "frontPage", templateId: DEFAULT_TEMPLATE_ID };
   const section = SECTIONS[id];
@@ -594,13 +604,7 @@ export default function App() {
   const refreshSource = useCallback(async (feed) => {
     setSources((prev) => ({ ...prev, [feed.id]: { ...(prev[feed.id] || {}), id: feed.id, status: "loading" } }));
     try {
-      const xml = await fetchTextWithFallback(feed.url);
-      const parsed = parseFeed(xml);
-      const articles = parsed.articles.map((a) => ({ ...a, section: assignSection(a) }));
-      const data = {
-        feedMeta: { title: parsed.title, description: parsed.description, link: parsed.link },
-        articles,
-      };
+      const data = await loadFeedData(feed.url);
       saveSourceCache(feed.id, data);
       setSources((prev) => ({ ...prev, [feed.id]: { id: feed.id, status: "ready", ...data } }));
     } catch (err) {
@@ -625,8 +629,12 @@ export default function App() {
   const addFeed = useCallback(async (url) => {
     const id = crypto.randomUUID();
     let feedUrl = url;
+    // Se l'url è già un feed valido, teniamo il risultato invece di scartarlo:
+    // rifare subito lo stesso identico fetch solo per "validare" raddoppiava
+    // inutilmente il tempo di attesa nel caso più comune.
+    let data = null;
     try {
-      parseFeed(await fetchTextWithFallback(url));
+      data = await loadFeedData(url);
     } catch {
       // non è un feed diretto: prova a scoprirlo dall'<head> della pagina
       // (autodiscovery standard, es. <link rel="alternate" type="application/rss+xml">)
@@ -644,7 +652,12 @@ export default function App() {
       saveFeedList(next);
       return next;
     });
-    await refreshSource(newFeed);
+    if (data) {
+      saveSourceCache(id, data);
+      setSources((prev) => ({ ...prev, [id]: { id, status: "ready", ...data } }));
+    } else {
+      await refreshSource(newFeed);
+    }
   }, [refreshSource]);
 
   const removeFeed = useCallback((id) => {

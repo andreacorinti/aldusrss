@@ -21,27 +21,27 @@ async function fetchWithTimeout(url) {
   }
 }
 
+async function fetchOk(url) {
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.text();
+}
+
 // Fetch generico con fallback sui proxy CORS: usato sia per scaricare l'XML di
 // un feed sia (per l'autodiscovery) per scaricare l'HTML di una pagina.
+//
+// Diretto + proxy partono tutti insieme invece che in sequenza: provarli uno
+// alla volta poteva costare fino a ~18s (6s a tentativo × 3) prima di
+// arrendersi, anche quando uno degli altri avrebbe risposto in un secondo.
+// Promise.any prende semplicemente il primo che risponde con successo.
 export async function fetchTextWithFallback(url) {
+  const attempts = [url, ...CORS_PROXIES.map((build) => build(url))];
   try {
-    const res = await fetchWithTimeout(url);
-    if (res.ok) return await res.text();
-  } catch {
-    // niente CORS (o timeout) sulla fonte diretta: si prova con i proxy qui sotto
+    return await Promise.any(attempts.map(fetchOk));
+  } catch (err) {
+    const reasons = err.errors ? err.errors.map((e) => e.message).join("; ") : err.message;
+    throw new Error(`Impossibile scaricare la risorsa: nessuna fonte raggiungibile (${reasons})`);
   }
-
-  let lastError = new Error("Impossibile scaricare la risorsa");
-  for (const buildProxyUrl of CORS_PROXIES) {
-    try {
-      const res = await fetchWithTimeout(buildProxyUrl(url));
-      if (res.ok) return await res.text();
-      lastError = new Error(`HTTP ${res.status}`);
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw new Error(`Impossibile scaricare la risorsa: nessuna fonte raggiungibile (${lastError.message})`);
 }
 
 function firstTag(el, names) {
