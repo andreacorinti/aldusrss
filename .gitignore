@@ -31,3 +31,10 @@ android/app/build
 android/capacitor-cordova-android-plugins/build
 android/**/*.apk
 android/**/*.aab
+
+# Firma di release: MAI committare chiavi o password (vedi README, sezione Distribuzione)
+android/keystore.properties
+android/*.jks
+android/*.keystore
+**/*.jks
+**/*.keystore

@@ -41,6 +41,35 @@ npm run android:build
 
 Compila il sito, sincronizza la cartella `android/` e genera un APK di debug in `android/app/build/outputs/apk/debug/app-debug.apk`, installabile su un dispositivo o emulatore per test (`adb install app-debug.apk`).
 
+### Distribuzione e firma (release)
+
+Un APK di debug è firmato con una chiave generica, la stessa su ogni macchina che usa gli SDK Android di default — installarlo fuori dall'IDE (es. da una GitHub Release) fa scattare più facilmente gli avvisi di Play Protect ("app potenzialmente dannosa"), a prescindere da cosa fa davvero l'app. Una build di release firmata con una chiave propria, univoca, riduce questo rischio (non lo azzera: l'avviso "installa da fonte sconosciuta" resta comunque, è una protezione di Android per qualunque APK che non venga dal Play Store — sparisce solo pubblicando lì).
+
+Per generare una build di release serve una chiave di firma, mai committata nel repository:
+
+```bash
+keytool -genkeypair -v -keystore ~/percorso/a-tua-scelta/aldusrss-release.jks \
+  -alias aldusrss -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Poi crea `android/keystore.properties` (già in `.gitignore`, non verrà mai committato):
+
+```properties
+storeFile=/percorso/assoluto/a/aldusrss-release.jks
+storePassword=...
+keyAlias=aldusrss
+keyPassword=...
+```
+
+A quel punto:
+
+```bash
+npm run android:build:release   # APK firmato, per GitHub Releases / sideload diretto
+npm run android:bundle:release  # AAB firmato, per il Play Store (richiede il formato AAB, non APK)
+```
+
+**Importante**: senza backup del file `.jks` e delle password (es. in un password manager), un giorno perso quel file significa non poter più pubblicare aggiornamenti dell'app con la stessa identità — Play Store e Android rifiutano un aggiornamento firmato con una chiave diversa da quella originale. Se al primo caricamento su Play Console si abilita "Play App Signing" (Google gestisce la vera chiave dell'app, la propria diventa solo una "chiave di caricamento"), la perdita è recuperabile tramite una procedura di Google; altrimenti no.
+
 ## Idea di fondo
 
 I social network si sono progressivamente sostituiti all'RSS come principale via di accesso alle notizie: l'utente resta dentro un ecosistema chiuso (anteprime, riassunti, feed algoritmico), l'editore perde il controllo del proprio pubblico e gran parte del traffico diretto al sito. AldusRSS è un tentativo deliberato di tornare a un sistema più vecchio — l'RSS — che invece porta traffico reale alle testate: ogni articolo linka all'originale, "Leggi l'articolo originale" apre il sito della fonte, non una copia interna. L'obiettivo non è sostituirsi ai giornali né trattenere l'attenzione al posto loro, ma restituire centralità a chi le notizie le scrive — lontano dalla logica delle piattaforme chiuse che redistribuiscono poco o nulla a chi produce l'informazione.
@@ -94,7 +123,8 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
 - [x] Icona app dedicata (monogramma "A" in Fraunces su rosso, coerente col masthead)
 - [ ] Splash screen dedicato (oggi quello di default di Capacitor)
-- [ ] APK firmato e distribuito via GitHub Releases / F-Droid
+- [x] Build di release firmata (`npm run android:build:release` / `android:bundle:release`), chiave propria generata e configurata — vedi README, sezione Distribuzione
+- [ ] Pubblicazione su Play Store (account developer creato, in attesa di verifica identità) e valutazione F-Droid
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso fonte)
 - [ ] Altre fonti EN di test e altre lingue oltre IT/EN (interfaccia e contenuti)
 - [ ] Motore di ricerca feed più ampio (oltre l'autodiscovery da un sito già noto) — richiederebbe un servizio esterno terzo, da valutare con calma
