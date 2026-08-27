@@ -56,35 +56,64 @@ function isFresh(article) {
   return (Date.now() - t) / 3600000 <= FRESH_WINDOW_HOURS;
 }
 
-// `diversify` limita hero+secondaria a un articolo per fonte: senza, una
-// fonte con contenuti molto recenti (il ranking premia fortemente la
-// recency) può monopolizzare l'intera Prima Pagina, lasciando alle altre
-// fonti solo "in breve". Ha senso solo per Prima Pagina: dentro una singola
-// sezione tematica è normale — anzi atteso — che più articoli della stessa
-// fonte compaiano insieme.
+// `diversify` limita quante ne può piazzare una singola fonte: senza, una
+// fonte molto prolifica (tante uscite, quasi sempre classificate nella
+// sezione di default perché non porta categorie — è il caso di ANSA) può
+// monopolizzare non solo hero+secondaria ma perfino "in breve", rendendo
+// Prima Pagina indistinguibile dalla sezione generalista (visto e verificato:
+// stesso hero, stessi 6 "in breve"). Il tetto è più permissivo in "in breve"
+// (un riepilogo tollera un po' più di ripetizione) che in hero+secondaria
+// (dove una singola fonte non dovrebbe mai occupare la vetrina). Ha senso
+// solo per Prima Pagina: dentro una singola sezione tematica è normale —
+// anzi atteso — che più articoli della stessa fonte compaiano insieme.
+const BRIEF_MAX_PER_SOURCE = 2;
+
 function bucketArticles(sorted, { diversify = false } = {}) {
   if (sorted.length === 0) return { hero: null, secondary: [], brief: [], stale: false };
 
   const fresh = sorted.filter(isFresh);
-  const pool = fresh.length > 0 ? fresh : sorted;
   const stale = fresh.length === 0;
+
+  // Con `diversify` (Prima Pagina) filtrare l'intero pool sul solo fresco
+  // prima di diversificare per fonte finiva per escludere del tutto una
+  // fonte meno "rumorosa" (poche uscite ma non nell'ultima finestra) quando
+  // un'altra fonte molto attiva aveva già riempito il fresco disponibile —
+  // la diversificazione restava senza nient'altro da cui pescare. Qui invece
+  // il fresco viene semplicemente anteposto al resto (stesso ordine di
+  // punteggio all'interno di ciascun gruppo): hero/secondaria/in-breve
+  // pescano quindi prima dal fresco e, fonte per fonte, solo se necessario
+  // completano con il meglio disponibile di quella fonte anche se meno
+  // recente — non sparisce mai del tutto.
+  const notFresh = sorted.filter((a) => !isFresh(a));
+  const pool = diversify ? [...fresh, ...notFresh] : fresh.length > 0 ? fresh : sorted;
 
   const withImage = pool.filter((a) => a.image);
   const hero = withImage[0] || pool[0];
   const rest = pool.filter((a) => a.id !== hero.id);
 
-  const usedSources = new Set([hero.sourceId]);
+  const sourceCounts = new Map([[hero.sourceId, 1]]);
   const secondary = [];
   for (const a of rest) {
     if (secondary.length >= 3) break;
     if (!a.image) continue;
-    if (diversify && usedSources.has(a.sourceId)) continue;
+    if (diversify && sourceCounts.has(a.sourceId)) continue;
     secondary.push(a);
-    usedSources.add(a.sourceId);
+    sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);
   }
 
   const secondaryIds = new Set(secondary.map((a) => a.id));
-  const brief = rest.filter((a) => !secondaryIds.has(a.id)).slice(0, 6);
+  const briefCandidates = rest.filter((a) => !secondaryIds.has(a.id));
+  const brief = [];
+  for (const a of briefCandidates) {
+    if (brief.length >= 6) break;
+    if (diversify) {
+      const count = sourceCounts.get(a.sourceId) || 0;
+      if (count >= BRIEF_MAX_PER_SOURCE) continue;
+      sourceCounts.set(a.sourceId, count + 1);
+    }
+    brief.push(a);
+  }
+
   return { hero, secondary, brief, stale };
 }
 
