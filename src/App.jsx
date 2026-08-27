@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, GripVertical } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
@@ -433,16 +433,51 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
 // pensato per la versione smartphone). Tiene la posizione di partenza del
 // trascinamento fissa e ricalcola ad ogni movimento quante righe ha attraversato
 // il puntatore, così l'elenco si riordina dal vivo mentre trascini.
+const FLIP_DURATION_MS = 200;
+
 function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection, onReorderSections, chrome, lang }) {
   const [draggingId, setDraggingId] = useState(null);
   const [dragOffset, setDragOffset] = useState(0);
   const rowRefs = useRef(new Map());
   const dragState = useRef(null);
+  const prevTops = useRef(new Map());
+
+  // FLIP (First-Last-Invert-Play): senza questo, ad ogni riordino durante il
+  // drag le righe non trascinate saltano di colpo alla nuova posizione invece
+  // di scivolarci — molto percettibile trascinando velocemente attraverso più
+  // righe in un solo movimento. Qui si misura la posizione prima e dopo il
+  // riordino e si anima la differenza con un transform, invece dello snap
+  // discreto. La riga trascinata resta esclusa: deve seguire il puntatore 1:1
+  // senza alcuna easing.
+  useLayoutEffect(() => {
+    for (const [id, el] of rowRefs.current) {
+      if (id === draggingId) continue;
+      const prevTop = prevTops.current.get(id);
+      const newTop = el.getBoundingClientRect().top;
+      if (prevTop != null && prevTop !== newTop) {
+        const delta = prevTop - newTop;
+        el.style.transition = "none";
+        el.style.transform = `translateY(${delta}px)`;
+        el.getBoundingClientRect(); // forza il reflow prima di riattivare la transizione
+        requestAnimationFrame(() => {
+          el.style.transition = `transform ${FLIP_DURATION_MS}ms ease`;
+          el.style.transform = "";
+        });
+      }
+    }
+    for (const [id, el] of rowRefs.current) {
+      prevTops.current.set(id, el.getBoundingClientRect().top);
+    }
+  }, [sectionOrder, draggingId]);
 
   function handlePointerDown(e, id) {
     const idx = sectionOrder.indexOf(id);
     const el = rowRefs.current.get(id);
     if (!el) return;
+    // pulisce eventuale transizione FLIP residua da un riordino precedente:
+    // il tracciamento durante il drag deve essere istantaneo, senza easing.
+    el.style.transition = "none";
+    el.style.transform = "";
     let rowStep = el.getBoundingClientRect().height + 12;
     const neighborId = sectionOrder[idx === 0 ? 1 : idx - 1];
     const neighborEl = neighborId && rowRefs.current.get(neighborId);
@@ -493,7 +528,7 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
             style={{
               color: chrome.ink,
               fontFamily: "'Inter', sans-serif",
-              transform: isDragging ? `translateY(${dragOffset}px)` : "none",
+              transform: isDragging ? `translateY(${dragOffset}px)` : undefined,
               position: "relative",
               zIndex: isDragging ? 10 : 1,
               opacity: isDragging ? 0.9 : 1,
