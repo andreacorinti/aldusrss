@@ -11,11 +11,18 @@ const FETCH_TIMEOUT_MS = 6000;
 // Un proxy pubblico può restare "appeso" senza rispondere né fallire: senza un
 // timeout per tentativo, la catena si blocca sul primo e non arriva mai a
 // provare gli altri.
+//
+// `cache: "no-store"` è necessario, non solo prudente: verificato su
+// dispositivo reale (logcat) che un refresh a distanza di pochi secondi da
+// uno precedente tornava in ~100ms invece di ~1.2s, sintomo della cache HTTP
+// del WebView che serviva la risposta salvata invece di ricontattare il
+// server — un aggiornamento manuale che sembra non aver fatto nulla, anche
+// se il codice sta effettivamente rifacendo la richiesta.
 async function fetchWithTimeout(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { signal: controller.signal, cache: "no-store" });
   } finally {
     clearTimeout(timer);
   }

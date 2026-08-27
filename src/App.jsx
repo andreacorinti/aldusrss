@@ -7,7 +7,7 @@ import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
 import { CURATED_PACKS } from "./lib/curatedFeeds";
 import { stripHtml, relativeTime, placeholderImage } from "./lib/format";
-import { LANGUAGES, resolveLanguage, t } from "./lib/i18n";
+import { resolveLanguage, t } from "./lib/i18n";
 import {
   loadFeedList,
   saveFeedList,
@@ -20,8 +20,6 @@ import {
   saveSectionOrderPref,
   loadDarkMode,
   saveDarkMode,
-  loadLanguagePref,
-  saveLanguagePref,
 } from "./lib/storage";
 
 const FONTS = `
@@ -86,6 +84,13 @@ function resolveTemplate(template, dark) {
   return { ...template, ...template.dark };
 }
 
+// Il nome della testata resta sempre nello stesso font, a differenza dei
+// titoli degli articoli (che cambiano stile per sezione, identità
+// editoriale voluta): è il logo dell'app, deve restare riconoscibile
+// uguale su ogni schermata invece di saltare tra 4 stili diversi cambiando
+// sezione.
+const MASTHEAD_STYLE = { fontFamily: "'Fraunces', serif", fontWeight: 900, letterSpacing: "0.02em", textTransform: "uppercase" };
+
 // Colori dell'interfaccia (non del "foglio" editoriale, che viene da templates.js):
 // masthead della schermata Feed/Impostazioni, card, toggle, sfondo del telefono.
 const CHROME_LIGHT = {
@@ -131,18 +136,13 @@ function StatusBar({ ink }) {
   );
 }
 
-function Masthead({ view, lang, onRefresh, refreshing }) {
+function Masthead({ view, lang }) {
   const today = new Date().toLocaleDateString(lang === "en" ? "en-GB" : "it-IT", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div className="px-5 pt-2 pb-3">
-      <div className="flex items-center justify-between">
-        <button onClick={onRefresh} disabled={refreshing} className="p-1 -ml-1" aria-label={t(lang, "refreshFeeds")}>
-          <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} style={{ color: view.ink }} />
-        </button>
-        <div className="text-center flex-1" style={{ ...view.mastheadStyle, color: view.ink, fontSize: "22px", lineHeight: 1 }}>
-          AldusRSS
-        </div>
-        <div className="w-7" />
+      <div className="text-center" style={{ ...MASTHEAD_STYLE, fontSize: "22px", lineHeight: 1 }}>
+        <span style={{ color: view.ink }}>Aldus</span>
+        <span style={{ color: view.accent }}>RSS</span>
       </div>
       <div className="flex items-center justify-center gap-2 mt-1.5">
         <span className="text-[10px] uppercase tracking-widest" style={{ color: view.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
@@ -728,7 +728,7 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
   );
 }
 
-function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReorderSections, darkMode, onToggleDarkMode, languagePref, onLanguageChange, chrome, lang }) {
+function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReorderSections, darkMode, onToggleDarkMode, chrome, lang }) {
   return (
     <div className="px-5 pt-4 pb-8">
       <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>{t(lang, "tabSettings")}</h2>
@@ -746,30 +746,6 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
           >
             <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: darkMode ? "18px" : "2px" }} />
           </button>
-        </div>
-
-        <div className="pt-3" style={{ borderTop: `1px solid ${chrome.cardBorder}` }}>
-          <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "languageLabel")}</p>
-          <p className="text-[12px] mt-0.5" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{t(lang, "languageHint")}</p>
-          <div className="flex gap-2 mt-2">
-            {LANGUAGES.map((opt) => {
-              const active = languagePref === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => onLanguageChange(opt.value)}
-                  className="px-3 py-1.5 rounded-full text-[12px] font-medium"
-                  style={{
-                    backgroundColor: active ? chrome.success : "transparent",
-                    color: active ? "#fff" : chrome.ink,
-                    border: `1px solid ${active ? chrome.success : chrome.divider}`,
-                  }}
-                >
-                  {opt.label || t(lang, opt.labelKey)}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
 
@@ -821,7 +797,6 @@ export default function App() {
     return [...valid, ...missing];
   });
   const [darkMode, setDarkMode] = useState(() => loadDarkMode());
-  const [languagePref, setLanguagePref] = useState(() => loadLanguagePref());
   const [tab, setTab] = useState("front");
   const [activeSection, setActiveSection] = useState(FRONT_PAGE_ID);
   const [article, setArticle] = useState(false);
@@ -959,13 +934,8 @@ export default function App() {
     });
   }, []);
 
-  const changeLanguage = useCallback((value) => {
-    setLanguagePref(value);
-    saveLanguagePref(value);
-  }, []);
-
   const chrome = darkMode ? CHROME_DARK : CHROME_LIGHT;
-  const lang = useMemo(() => resolveLanguage(languagePref), [languagePref]);
+  const lang = useMemo(() => resolveLanguage(), []);
 
   // "loading" può voler dire "primo caricamento in corso, nessun dato ancora"
   // oppure "refresh in corso, ma i dati della volta precedente ci sono
@@ -1031,7 +1001,6 @@ export default function App() {
       accent: template.accent,
       paper: template.paper,
       ink: template.ink,
-      mastheadStyle: template.mastheadStyle,
       headlineStyle: template.headlineStyle,
       hero: composed.hero ? mapArticle(composed.hero, [900, 650], lang) : null,
       secondary: composed.secondary.map((a) => mapArticle(a, [500, 400], lang)),
@@ -1064,7 +1033,7 @@ export default function App() {
 
         {tab === "front" && anyReady && !article && (
           <>
-            <Masthead view={currentView} lang={lang} onRefresh={refreshAllFeeds} refreshing={isRefreshing} />
+            <Masthead view={currentView} lang={lang} />
             <div className="px-5 flex gap-2 pb-3 overflow-x-auto">
               {sectionTabs.map((st) => (
                 <button
@@ -1109,8 +1078,6 @@ export default function App() {
               onReorderSections={reorderSections}
               darkMode={darkMode}
               onToggleDarkMode={toggleDarkMode}
-              languagePref={languagePref}
-              onLanguageChange={changeLanguage}
               chrome={chrome}
               lang={lang}
             />

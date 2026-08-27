@@ -1,13 +1,8 @@
 // Traduzione dell'interfaccia (non del contenuto dei feed, che resta nella lingua
-// originale della fonte). Pensato in ottica app nativa futura: su Android/iOS la
-// lingua di sistema sarebbe letta direttamente dall'OS; qui "auto" usa
-// navigator.language come equivalente web.
-export const LANGUAGES = [
-  { value: "auto", labelKey: "languageAuto" },
-  { value: "it", label: "Italiano" },
-  { value: "en", label: "English" },
-];
-
+// originale della fonte). Niente selettore manuale (tolto: occupava spazio per
+// un caso d'uso raro) — segue sempre la lingua di sistema (`navigator.language`,
+// l'equivalente web di quella che leggerebbe un'app nativa Android/iOS):
+// italiano se il sistema è in italiano, inglese in ogni altro caso.
 const STRINGS = {
   it: {
     frontPage: "Prima Pagina",
@@ -43,9 +38,6 @@ const STRINGS = {
     weightNormal: "Normale",
     weightHigh: "Alto",
     darkModeLabel: "Modalità notte",
-    languageLabel: "Lingua",
-    languageHint: "Lingua dell'interfaccia (i contenuti restano nella lingua della fonte)",
-    languageAuto: "Automatica (sistema)",
     sectionsVisibleTitle: "Sezioni visibili",
     sectionsVisibleSubtitle: "Nascondi le sezioni che non ti interessano, usa le frecce per riordinarle",
     sectionMoveUp: "Sposta su",
@@ -54,7 +46,6 @@ const STRINGS = {
     creditsLine: "Realizzato da Andrea Corinti",
     emptyNoFeeds: 'Nessun feed configurato. Aggiungine uno dalla scheda "Feed".',
     loadingPaper: "Caricamento del giornale in corso…",
-    refreshFeeds: "Aggiorna i feed",
     pullToRefresh: "Trascina per aggiornare",
     releaseToRefresh: "Rilascia per aggiornare",
     refreshingLabel: "Aggiornamento in corso…",
@@ -93,9 +84,6 @@ const STRINGS = {
     weightNormal: "Normal",
     weightHigh: "High",
     darkModeLabel: "Dark mode",
-    languageLabel: "Language",
-    languageHint: "Interface language (content stays in the source's own language)",
-    languageAuto: "Automatic (system)",
     sectionsVisibleTitle: "Visible sections",
     sectionsVisibleSubtitle: "Hide sections you're not interested in, use the arrows to reorder",
     sectionMoveUp: "Move up",
@@ -104,18 +92,16 @@ const STRINGS = {
     creditsLine: "Made by Andrea Corinti",
     emptyNoFeeds: 'No feeds configured yet. Add one from the "Feeds" tab.',
     loadingPaper: "Loading your paper…",
-    refreshFeeds: "Refresh feeds",
     pullToRefresh: "Pull to refresh",
     releaseToRefresh: "Release to refresh",
     refreshingLabel: "Refreshing…",
   },
 };
 
-export function resolveLanguage(pref) {
-  if (pref === "it" || pref === "en") return pref;
+export function resolveLanguage() {
   try {
-    const nav = (navigator.language || "it").slice(0, 2).toLowerCase();
-    return STRINGS[nav] ? nav : "it";
+    const nav = (navigator.language || "").slice(0, 2).toLowerCase();
+    return nav === "it" ? "it" : "en";
   } catch {
     return "it";
   }

@@ -84,7 +84,10 @@ export const CURATED_PACKS = [
     label: { it: "Nerd in inglese (videogiochi, anime, manga)", en: "Nerd (games, anime, manga)" },
     feeds: [
       { id: "kotaku", url: "https://kotaku.com/feed", label: "Kotaku", weight: 1, sectionHint: "tecnologia" },
-      { id: "polygon", url: "https://www.polygon.com/rss/index.xml", label: "Polygon", weight: 1, sectionHint: "tecnologia" },
+      // Polygon tolta: nessun header CORS sul feed e i proxy pubblici
+      // falliscono comunque su quel dominio (segnalato dall'utente:
+      // "failed to fetch" persistente) — sostituita con PCGamer.
+      { id: "pcgamer", url: "https://www.pcgamer.com/rss/", label: "PCGamer", weight: 1, sectionHint: "tecnologia" },
       { id: "eurogamer", url: "https://www.eurogamer.net/feed", label: "Eurogamer", weight: 1, sectionHint: "tecnologia" },
       { id: "ann", url: "https://www.animenewsnetwork.com/all/rss.xml", label: "Anime News Network", weight: 1, sectionHint: "cultura" },
     ],

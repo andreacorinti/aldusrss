@@ -14,17 +14,17 @@ Carica feed RSS/Atom reali — di default ANSA, Sky Sport, DDay.it, Il Sole 24 O
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni, con priorità a cronaca/economia sull'apertura come in un vero giornale
 - **Attualità, Economia** — impaginazione classica ("quotidiano")
-- **Sport** — masthead condensato ad alto contrasto
-- **Tecnologia** — layout più visuale, masthead in corsivo ("magazine")
-- **Cultura** (spettacolo incluso) — masthead elegante in corsivo ("rivista")
+- **Sport** — palette ad alto contrasto, titoli in condensato ("sportivo")
+- **Tecnologia** — layout più visuale, titoli in corsivo ("magazine")
+- **Cultura** (spettacolo incluso) — titoli in corsivo elegante ("rivista")
 
-Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile e riordinabile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
+Ogni sezione ha una propria identità editoriale — colore, carta, tipografia dei titoli — ma la testata "AldusRSS" in cima resta sempre nello stesso font, per restare riconoscibile: solo il colore di "RSS" segue il tema della sezione aperta. Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile e riordinabile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, trascina verso il basso per aggiornarlo quando vuoi tu.
 
 Altre funzioni:
 - **"Scopri fonti consigliate"** (scheda Feed): pacchetti di feed verificati per tema, da aggiungere in blocco (`src/lib/curatedFeeds.js`) — oltre alle sezioni dell'app, anche fonti in inglese (BBC, Guardian, NPR) e due pacchetti "nerd" (videogiochi, anime, manga) in italiano e in inglese
 - **Autodiscovery**: aggiungi una fonte con il solo indirizzo del sito (es. `corriere.it`), non serve l'URL esatto del feed
 - **Peso per fonte**: quanto spesso una fonte compare in evidenza in Prima Pagina (Basso/Normale/Alto)
-- **Italiano/Inglese** con rilevamento automatico, **modalità notte** dedicata per ogni template
+- **Lingua dell'interfaccia** automatica dalla lingua di sistema (italiano se il sistema è in italiano, inglese altrimenti — nessun selettore manuale, per restare più snella), **modalità notte** dedicata per ogni template
 
 ### Avviare in locale
 
@@ -69,12 +69,11 @@ I lettori RSS esistenti mostrano tutte le fonti con lo stesso template a card, o
 
 ## Roadmap
 
-**Fatto**: parsing RSS/Atom reale, aggregazione multi-fonte a sezioni tematiche con peso configurabile e tetto massimo di 2 articoli per fonte in Prima Pagina, pacchetti di feed curati da importare in blocco (incluse fonti in inglese e due pacchetti "nerd" videogiochi/anime/manga), 4 template editoriali con modalità notte, interfaccia IT/EN, autodiscovery feed da sito, sezioni riordinabili, app Android (Capacitor) con icona dedicata, aggiornamento a trascinamento, build di release firmata pronta per sideload/Play Store.
+**Fatto**: parsing RSS/Atom reale, aggregazione multi-fonte a sezioni tematiche con peso configurabile e tetto massimo di 2 articoli per fonte in Prima Pagina, pacchetti di feed curati da importare in blocco (incluse fonti in inglese e due pacchetti "nerd" videogiochi/anime/manga), 4 template editoriali con modalità notte e masthead fissa (solo il colore segue la sezione), lingua auto IT/EN senza selettore manuale, autodiscovery feed da sito, sezioni riordinabili, aggiornamento a trascinamento (rimosso il bottone manuale ridondante), app Android (Capacitor) con icona dedicata, build di release firmata pronta per sideload/Play Store.
 
 **Prossimi passi**:
 - [ ] Pubblicazione su Play Store (account verificato, configurazione pronta — vedi `docs/store/`) e valutazione F-Droid
 - [ ] Splash screen dedicato (oggi quello di default di Capacitor)
-- [ ] Menù hamburger in alto a sinistra senza funzione: dargli uno scopo reale o rimuoverlo
 - [ ] Strategia per un pubblico internazionale più ampia (oltre il pacchetto fonti in inglese già disponibile) — da ripensare con calma
 - [ ] Ranking di Prima Pagina più sofisticato (oltre recency + peso + fattore sezione)
 - [ ] Motore di ricerca feed più ampio (oltre l'autodiscovery da un sito già noto) — richiederebbe un servizio esterno terzo
