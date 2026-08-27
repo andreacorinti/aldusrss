@@ -6,7 +6,12 @@ const CORS_PROXIES = [
   (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
 ];
 
-const FETCH_TIMEOUT_MS = 6000;
+// Ridotto da 6000: con l'aggiunta di una fonte che incatena più tentativi in
+// sequenza (fetch diretto, poi autodiscovery, poi percorsi comuni) un
+// timeout troppo generoso si sommava fino a 15-18 secondi di attesa per un
+// indirizzo senza nessun feed reale (verificato testando con un profilo non
+// tecnico) — 4s resta comunque ampio per un feed/proxy lento ma genuino.
+const FETCH_TIMEOUT_MS = 4000;
 
 // Un proxy pubblico può restare "appeso" senza rispondere né fallire: senza un
 // timeout per tentativo, la catena si blocca sul primo e non arriva mai a

@@ -41,16 +41,29 @@ const WEIGHT_LEVELS = [
 
 // Accetta anche "corriere.it" oltre a un URL completo, per permettere di
 // incollare l'indirizzo di un sito (l'autodiscovery in addFeed troverà il feed).
+//
+// Il controllo sull'hostname è necessario, non solo prudente: senza,
+// digitare una frase qualunque ("il mio giornale di Verona") produceva un
+// URL sintatticamente valido (gli spazi diventano %20 nell'hostname) ma
+// ovviamente inutile — veniva accettato in silenzio, lasciato fallire dopo
+// una lunga attesa e restava in elenco per sempre con un errore tecnico
+// incomprensibile (trovato testando con un profilo non tecnico). Un
+// hostname vero non contiene spazi/percent-encoding e ha almeno un punto.
 function normalizeUrl(input) {
+  let url;
   try {
-    return new URL(input).href;
+    url = new URL(input);
   } catch {
     try {
-      return new URL(`https://${input}`).href;
+      url = new URL(`https://${input}`);
     } catch {
       return null;
     }
   }
+  if (!/^[a-z0-9.-]+$/i.test(url.hostname) || !url.hostname.includes(".")) {
+    return null;
+  }
+  return url.href;
 }
 
 function mapArticle(a, size, lang) {
@@ -495,10 +508,19 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
     }
     setAddError("");
     setSubmitting(true);
-    await onAdd(url);
-    setSubmitting(false);
-    setUrlInput("");
-    setAdding(false);
+    try {
+      await onAdd(url);
+      setUrlInput("");
+      setAdding(false);
+    } catch {
+      // Il form resta aperto con un errore chiaro invece di chiudersi come se
+      // fosse andato tutto bene: prima una fonte introvabile veniva comunque
+      // aggiunta all'elenco, dove falliva in silenzio con un messaggio tecnico
+      // solo minuti dopo (trovato testando con un profilo non tecnico).
+      setAddError(t(lang, "errorNoFeedFound"));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -568,7 +590,11 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
                 >
                   <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: f.enabled ? "18px" : "2px" }} />
                 </button>
-                <button onClick={() => onRemove(f.id)} className="p-1.5" aria-label="Rimuovi feed">
+                <button
+                  onClick={() => { if (window.confirm(`${t(lang, "confirmRemoveFeed")} "${label}"?`.trim())) onRemove(f.id); }}
+                  className="p-1.5"
+                  aria-label="Rimuovi feed"
+                >
                   <X size={15} color={`${chrome.ink}88`} />
                 </button>
               </div>
@@ -849,12 +875,16 @@ export default function App() {
     await Promise.all(newFeeds.map((f) => refreshSource(f)));
   }, [feedList, refreshSource]);
 
+  // Aggiunge una fonte solo se si riesce davvero a scaricarla e a leggerla
+  // come feed — mai "nel dubbio, aggiungiamola comunque e vediamo se
+  // funziona": un URL che non porta a nessun feed reale (una frase digitata
+  // per errore, un sito senza feed) restava altrimenti in elenco per
+  // sempre, fallito in silenzio con un errore tecnico incomprensibile
+  // (trovato testando con un profilo non tecnico). Se non si trova nulla,
+  // lancia un errore — il chiamante (FeedsScreen) lo mostra nel form invece
+  // di chiudere come se fosse andato tutto bene.
   const addFeed = useCallback(async (url) => {
-    const id = crypto.randomUUID();
     let feedUrl = url;
-    // Se l'url è già un feed valido, teniamo il risultato invece di scartarlo:
-    // rifare subito lo stesso identico fetch solo per "validare" raddoppiava
-    // inutilmente il tempo di attesa nel caso più comune.
     let data = null;
     try {
       data = await loadFeedData(url);
@@ -863,25 +893,25 @@ export default function App() {
       // (autodiscovery standard, es. <link rel="alternate" type="application/rss+xml">)
       try {
         const discovered = await discoverFeedUrl(url);
-        if (discovered) feedUrl = discovered;
+        if (discovered) {
+          feedUrl = discovered;
+          data = await loadFeedData(discovered);
+        }
       } catch {
-        // nessuna autodiscovery riuscita: si tenta comunque con l'url originale,
-        // refreshSource mostrerà un errore chiaro se non è un feed valido
+        // nessuna autodiscovery riuscita
       }
     }
+    if (!data) throw new Error("no feed found");
+    const id = crypto.randomUUID();
     const newFeed = { id, url: feedUrl, enabled: true, weight: 1 };
     setFeedList((prev) => {
       const next = [...prev, newFeed];
       saveFeedList(next);
       return next;
     });
-    if (data) {
-      saveSourceCache(id, data);
-      setSources((prev) => ({ ...prev, [id]: { id, status: "ready", ...data } }));
-    } else {
-      await refreshSource(newFeed);
-    }
-  }, [refreshSource]);
+    saveSourceCache(id, data);
+    setSources((prev) => ({ ...prev, [id]: { id, status: "ready", ...data } }));
+  }, []);
 
   const removeFeed = useCallback((id) => {
     setFeedList((prev) => {

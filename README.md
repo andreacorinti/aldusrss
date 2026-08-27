@@ -69,7 +69,7 @@ I lettori RSS esistenti mostrano tutte le fonti con lo stesso template a card, o
 
 ## Roadmap
 
-**Fatto**: parsing RSS/Atom reale, aggregazione multi-fonte a sezioni tematiche con peso configurabile e tetto massimo di 2 articoli per fonte in Prima Pagina, pacchetti di feed curati da importare in blocco (incluse fonti in inglese e due pacchetti "nerd" videogiochi/anime/manga), 4 template editoriali con modalità notte e masthead fissa (solo il colore segue la sezione), lingua auto IT/EN senza selettore manuale, autodiscovery feed da sito, sezioni riordinabili, aggiornamento a trascinamento (rimosso il bottone manuale ridondante), app Android (Capacitor) con icona dedicata, build di release firmata pronta per sideload/Play Store.
+**Fatto**: parsing RSS/Atom reale, aggregazione multi-fonte a sezioni tematiche con peso configurabile e tetto massimo di 2 articoli per fonte in Prima Pagina, pacchetti di feed curati da importare in blocco (incluse fonti in inglese e due pacchetti "nerd" videogiochi/anime/manga), 4 template editoriali con modalità notte e masthead fissa (solo il colore segue la sezione), lingua auto IT/EN senza selettore manuale, autodiscovery feed da sito con validazione prima di aggiungere una fonte (niente più voci fantasma per un indirizzo sbagliato) e conferma prima di rimuoverne una, sezioni riordinabili, aggiornamento a trascinamento (rimosso il bottone manuale ridondante), app Android (Capacitor) con icona dedicata, build di release firmata pronta per sideload/Play Store.
 
 **Prossimi passi**:
 - [ ] Pubblicazione su Play Store (account verificato, configurazione pronta — vedi `docs/store/`) e valutazione F-Droid
