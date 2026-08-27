@@ -15,10 +15,22 @@ const LANGUAGE_KEY = "aldusrss.language";
 // contenuti fermi al 2023/2024 nonostante header di cache "freschi" — mentre
 // sport.sky.it/rss/sport.xml è realmente aggiornato in giornata e porta
 // immagini.
+//
+// `sectionHint`: fonti a tema unico che quasi mai taggano l'articolo con una
+// categoria riconoscibile (Sky Sport lascia <category> vuota; i titoli usano
+// nomi di squadre/competizioni, non parole come "calcio") — senza un
+// ripiego finivano quasi tutte nella sezione di default (Attualità),
+// monopolizzandola. Vedi `assignSection` in classify.js: usato solo quando
+// nessuna parola chiave ha già trovato un match reale altrove. ANSA Economia
+// e HDblog.it aggiunte per la stessa ragione, con il vantaggio di essere
+// anche fonti verificate aggiornate in giornata (a differenza del feed
+// generico Wired, fermo da settimane lato editore — vedi README).
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
   { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1 },
-  { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 1 },
+  { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 1, sectionHint: "sport" },
+  { id: "ansa-economia", url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", enabled: true, weight: 1, sectionHint: "economia" },
+  { id: "hdblog", url: "https://www.hdblog.it/rss/", enabled: true, weight: 1, sectionHint: "tecnologia" },
 ];
 
 export function loadFeedList() {

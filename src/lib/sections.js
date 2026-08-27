@@ -41,7 +41,7 @@ export const SECTIONS = {
     keywords: [
       "tecnologia", "smartphone", "intelligenza artificiale", "gadget", "software", "hardware",
       "videogiochi", "gaming", "digitale", "scienza",
-      "technology", "tech", " ai ", "science", "robot",
+      "technology", "tech", "science", "robot",
       "games", "game", "videogame", "esports", "playstation", "xbox", "nintendo",
     ],
   },

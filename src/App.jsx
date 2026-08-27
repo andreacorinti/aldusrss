@@ -69,10 +69,10 @@ function mapArticle(a, size, lang) {
   };
 }
 
-async function loadFeedData(url) {
+async function loadFeedData(url, sectionHint) {
   const xml = await fetchTextWithFallback(url);
   const parsed = parseFeed(xml);
-  const articles = parsed.articles.map((a) => ({ ...a, section: assignSection(a) }));
+  const articles = parsed.articles.map((a) => ({ ...a, section: assignSection(a, sectionHint) }));
   return {
     feedMeta: { title: parsed.title, description: parsed.description, link: parsed.link },
     articles,
@@ -733,7 +733,7 @@ export default function App() {
   const refreshSource = useCallback(async (feed) => {
     setSources((prev) => ({ ...prev, [feed.id]: { ...(prev[feed.id] || {}), id: feed.id, status: "loading" } }));
     try {
-      const data = await loadFeedData(feed.url);
+      const data = await loadFeedData(feed.url, feed.sectionHint);
       saveSourceCache(feed.id, data);
       setSources((prev) => ({ ...prev, [feed.id]: { id: feed.id, status: "ready", ...data } }));
     } catch (err) {

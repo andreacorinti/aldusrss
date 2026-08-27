@@ -8,23 +8,48 @@ import { parseDate } from "./format";
 const CATEGORY_WEIGHT = 3;
 const TITLE_WEIGHT = 1;
 
-export function assignSection(article) {
-  const categoryText = ` ${(article.categories || []).join(" ").toLowerCase()} `;
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Confine di parola invece di un `includes()` su tutta la stringa: parole
+// chiave brevi come "arte" comparivano come sottostringa dentro parole
+// italiane comuni e del tutto estranee (es. "partecipanti" contiene "arte"),
+// producendo classificazioni sbagliate senza che nessuna vera parola chiave
+// fosse presente nel testo.
+function compileKeywords(keywords) {
+  return keywords.map((w) => new RegExp(`\\b${escapeRegExp(w.trim())}\\b`, "i"));
+}
+
+const SECTION_MATCHERS = Object.values(SECTIONS)
+  .filter((section) => section.id !== DEFAULT_SECTION_ID)
+  .map((section) => ({ id: section.id, regexes: compileKeywords(section.keywords) }));
+
+// `sectionHint` è la sezione "di casa" di una fonte a tema unico (es. Sky
+// Sport → sport): usata solo come ripiego quando nessuna parola chiave ha
+// trovato corrispondenza, mai per scavalcare un match reale. Molte fonti
+// specializzate non taggano ogni articolo con una categoria riconoscibile
+// (Sky Sport lascia quasi sempre <category> vuota) né usano nel titolo le
+// parole chiave attese (nomi di squadre/competizioni, non "calcio"): senza
+// un ripiego, quegli articoli cadevano tutti nella sezione di default
+// (Attualità), finendo per monopolizzarla.
+export function assignSection(article, sectionHint) {
+  const categoryText = (article.categories || []).join(" ").toLowerCase();
   const hasCategories = categoryText.trim().length > 0;
-  const titleText = ` ${(article.title || "").toLowerCase()} `;
+  const titleText = (article.title || "").toLowerCase();
 
   let best = DEFAULT_SECTION_ID;
   let bestScore = 0;
-  for (const section of Object.values(SECTIONS)) {
-    if (section.id === DEFAULT_SECTION_ID) continue;
-    const catScore = section.keywords.reduce((n, w) => n + (categoryText.includes(w) ? 1 : 0), 0);
-    const titleScore = hasCategories ? 0 : section.keywords.reduce((n, w) => n + (titleText.includes(w) ? 1 : 0), 0);
+  for (const { id, regexes } of SECTION_MATCHERS) {
+    const catScore = regexes.reduce((n, re) => n + (re.test(categoryText) ? 1 : 0), 0);
+    const titleScore = hasCategories ? 0 : regexes.reduce((n, re) => n + (re.test(titleText) ? 1 : 0), 0);
     const score = catScore * CATEGORY_WEIGHT + titleScore * TITLE_WEIGHT;
     if (score > bestScore) {
       bestScore = score;
-      best = section.id;
+      best = id;
     }
   }
+  if (best === DEFAULT_SECTION_ID && sectionHint && SECTIONS[sectionHint]) return sectionHint;
   return best;
 }
 

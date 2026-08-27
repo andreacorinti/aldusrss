@@ -8,7 +8,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 ## Demo
 
-Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia e Sky Sport, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
+Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + un feed dedicato a Economia), Wired Italia, Sky Sport e HDblog.it, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni
 - **Attualità, Mondo, Economia** — impaginazione classica ("quotidiano")
@@ -52,7 +52,7 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - **Proxy CORS**: molti feed non inviano header `Access-Control-Allow-Origin`, quindi il browser non può scaricarli direttamente. Il prototipo prova prima il fetch diretto e, se fallisce, ricade su una catena di proxy CORS pubblici (con timeout per tentativo, così uno "appeso" non blocca gli altri) — un workaround client-side best-effort, non un'infrastruttura nostra. L'elenco è isolato in `src/lib/rss.js` ed è facile da estendere. Il problema si riduce molto passando a Capacitor/Tauri: restano comunque un motore web, ma senza le restrizioni CORS del browser sandboxato su un dominio pubblico.
 - **Autodiscovery del feed da un sito**: stesso meccanismo e stessi limiti del punto sopra, aggravati dal fatto che una homepage pesa in genere molto più di un feed XML (verificato: 1MB+ per diverse testate) — i proxy CORS pubblici gratuiti spesso rifiutano payload di quella dimensione. Funziona in modo affidabile quando il sito invia header CORS permissivi anche sulla homepage (raro) o quando la pagina è leggera; altrimenti va ancora incollato il link diretto al feed.
 - **Corpo articolo**: molti feed pubblicano solo un riassunto, non il testo integrale. La vista articolo mostra quello che il feed fornisce, con un link "Leggi l'articolo originale" verso la fonte.
-- **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi o su feed senza categorie (un titolo come "Disco del Mese" non contiene alcuna parola chiave riconoscibile, quindi finisce nella sezione di default invece che in Cultura).
+- **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN, per confine di parola intero — non una sottostringa qualunque) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi o su feed senza categorie (un titolo come "Disco del Mese" non contiene alcuna parola chiave riconoscibile, quindi finisce nella sezione di default invece che in Cultura). Le fonti a tema unico (es. Sky Sport) hanno un `sectionHint` di ripiego, usato solo quando nessuna parola chiave trova un match reale altrove: senza, finivano quasi tutte nella sezione di default.
 - **Ranking di Prima Pagina**: solo recency × peso fonte configurabile, non un vero giudizio editoriale su cosa sia importante (l'"importanza" di una notizia resta indecidibile in automatico).
 - **Feed abbandonati lato editore**: alcuni publisher smettono di aggiornare un feed pubblico senza dismetterlo (risponde 200, header di cache "freschi", ma contenuti fermi a mesi o anni fa) — non distinguibile da un feed sano se non guardando le date reali degli articoli. Capita anche a fonti di default: se un articolo palesemente vecchio finisce in evidenza, la sezione mostra l'avviso "nessun articolo recente".
 
@@ -78,6 +78,10 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Gazzetta dello Sport tolta dai default (feed abbandonato lato editore, contenuti fermi al 2023/2024): sostituita da Sky Sport
 - [x] Bug immagini Wired: `<media:content/>` vuoto veniva letto prima di `<media:thumbnail/>`, scartando l'immagine reale
 - [x] Aggiornamento con trascinamento: indicatore con etichetta "Trascina/Rilascia per aggiornare" e resistenza elastica oltre la soglia, invece dello snap secco iniziale
+- [x] Bug parsing date in italiano (es. Sky Sport: "gio, 27 ago…"): `Date.parse` nativo capisce solo l'inglese, articoli di oggi trattati come "senza data"
+- [x] Bug classificazione per sottostringa (es. "arte" dentro "partecipanti"): passato a un match per confine di parola intero
+- [x] Attualità monopolizzata da Sky Sport: aggiunto `sectionHint` di ripiego per le fonti a tema unico
+- [x] Economia/Tecnologia con notizie vecchie (Wired aggiorna il proprio feed con settimane di ritardo, verificato lato editore): aggiunte ANSA Economia e HDblog.it come fonti di default aggiuntive, verificate aggiornate in giornata
 - [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — da ripensare con calma, non di corsa
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
 - [x] Icona app dedicata (monogramma "A" in Fraunces su rosso, coerente col masthead)
