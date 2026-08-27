@@ -12,12 +12,6 @@ export const SECTIONS = {
     templateId: "quotidiano",
     keywords: [],
   },
-  mondo: {
-    id: "mondo",
-    label: "Mondo",
-    templateId: "quotidiano",
-    keywords: ["esteri", "internazionale", "world", "international"],
-  },
   economia: {
     id: "economia",
     label: "Economia",
@@ -46,6 +40,10 @@ export const SECTIONS = {
       "android", "ios", "app", "iphone", "samsung", "app store",
     ],
   },
+  // Include anche lo spettacolo (cinema, tv, celebrità): tolta la sezione
+  // Gossip dedicata (troppo poco alimentata dalle fonti disponibili per
+  // valerne la complessità), l'intrattenimento in senso ampio resta qui —
+  // convenzione comune nei quotidiani italiani ("Cultura e Spettacoli").
   cultura: {
     id: "cultura",
     label: "Cultura",
@@ -53,16 +51,11 @@ export const SECTIONS = {
     keywords: [
       "cultura", "arte", "cinema", "libri", "musica", "teatro",
       "culture", "arts", "film", "books",
+      "spettacolo", "spettacoli", "entertainment", "celebrity",
     ],
-  },
-  gossip: {
-    id: "gossip",
-    label: "Gossip",
-    templateId: "rivista",
-    keywords: ["gossip", "spettacolo", "vip", "celebrity", "moda", "entertainment", "showbiz", "royal"],
   },
 };
 
 // Ordine dei pill: "Prima Pagina" (vista composta, non una sezione di classificazione)
 // va sempre per prima e viene aggiunta a parte da chi consuma questo elenco.
-export const SECTION_ORDER = ["attualita", "mondo", "economia", "sport", "tecnologia", "cultura", "gossip"];
+export const SECTION_ORDER = ["attualita", "economia", "sport", "tecnologia", "cultura"];

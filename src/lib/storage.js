@@ -41,6 +41,16 @@ export const DEFAULT_FEEDS = [
   { id: "ansa-economia", url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", enabled: true, weight: 1, sectionHint: "economia" },
   { id: "ansa-cultura", url: "https://www.ansa.it/sito/notizie/cultura/cultura_rss.xml", enabled: true, weight: 1, sectionHint: "cultura" },
   { id: "hdblog", url: "https://www.hdblog.it/rss/", enabled: true, weight: 1 },
+  { id: "sole24ore-economia", url: "https://www.ilsole24ore.com/rss/economia.xml", enabled: true, weight: 1, sectionHint: "economia" },
+  // Categorie native ricche e affidabili (Cronaca, Borsa italiana, Cinema e
+  // serie tv...): quasi mai deve ripiegare sul titolo, si classifica bene da
+  // sola senza hint.
+  { id: "rainews", url: "https://www.rainews.it/rss/tutti", enabled: true, weight: 1 },
+  // Stesso editore e stesso pattern di pubblicazione di Sky Sport (più volte
+  // ogni 10 minuti, quasi mai categorie sull'articolo): peso ridotto di
+  // default per lo stesso motivo, prima ancora di vederlo monopolizzare
+  // Attualità come già successo con Sky Sport in Prima Pagina.
+  { id: "sky-tg24", url: "https://tg24.sky.it/rss/tg24_all.xml", enabled: true, weight: 0.5 },
 ];
 
 export function loadFeedList() {

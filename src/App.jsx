@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Capacitor } from "@capacitor/core";
 import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
-import { assignSection, composeArticles } from "./lib/classify";
+import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
 import { stripHtml, relativeTime, placeholderImage } from "./lib/format";
@@ -52,11 +52,6 @@ function normalizeUrl(input) {
       return null;
     }
   }
-}
-
-function weightLabel(value, lang) {
-  const level = WEIGHT_LEVELS.find((w) => w.value === value) || WEIGHT_LEVELS[1];
-  return t(lang, level.labelKey);
 }
 
 function mapArticle(a, size, lang) {
@@ -530,20 +525,33 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
                       <AlertTriangle size={11} /> {t(lang, "statusStale")}
                     </span>
                   )}
+                  {s?.status === "ready" && Array.isArray(s.articles) && s.articles.length > 0 && !s.articles.some(isFresh) && (
+                    <span className="text-[11px] flex items-center gap-1" style={{ color: chrome.warning }}>
+                      <AlertTriangle size={11} /> {t(lang, "statusNoFreshContent")}
+                    </span>
+                  )}
                   {s?.status === "ready" && (
                     <p className="text-[11.5px] truncate" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{f.url}</p>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => onWeightChange(f.id)}
-                  title={t(lang, "weightTooltip").replace("{weight}", weightLabel(f.weight, lang))}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                  style={{ backgroundColor: chrome.chipBg, color: chrome.ink }}
-                >
-                  {weightLabel(f.weight, lang)[0]}
-                </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.cardBorder}` }}>
+                  {WEIGHT_LEVELS.map((level) => {
+                    const active = (f.weight ?? 1) === level.value;
+                    return (
+                      <button
+                        key={level.value}
+                        onClick={() => onWeightChange(f.id, level.value)}
+                        title={t(lang, level.labelKey)}
+                        className="w-6 h-6 flex items-center justify-center text-[10px] font-bold"
+                        style={{ backgroundColor: active ? chrome.success : "transparent", color: active ? "#fff" : chrome.ink, opacity: active ? 1 : 0.5 }}
+                      >
+                        {t(lang, level.labelKey)[0]}
+                      </button>
+                    );
+                  })}
+                </div>
                 <button
                   onClick={() => onToggle(f.id)}
                   className="w-9 h-5 rounded-full relative transition-colors"
@@ -844,14 +852,9 @@ export default function App() {
     });
   }, []);
 
-  const changeWeight = useCallback((id) => {
+  const changeWeight = useCallback((id, value) => {
     setFeedList((prev) => {
-      const next = prev.map((f) => {
-        if (f.id !== id) return f;
-        const idx = WEIGHT_LEVELS.findIndex((w) => w.value === (f.weight ?? 1));
-        const nextLevel = WEIGHT_LEVELS[(idx + 1) % WEIGHT_LEVELS.length];
-        return { ...f, weight: nextLevel.value };
-      });
+      const next = prev.map((f) => (f.id === id ? { ...f, weight: value } : f));
       saveFeedList(next);
       return next;
     });

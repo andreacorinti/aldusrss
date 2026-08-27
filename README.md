@@ -8,13 +8,15 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 ## Demo
 
-Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + feed dedicati a Economia e Cultura), Wired Italia, Sky Sport e HDblog.it, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
+Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + feed dedicati a Economia e Cultura), Wired Italia, Sky Sport, HDblog.it, Il Sole 24 Ore (Economia), RaiNews e Sky TG24, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni
-- **Attualità, Mondo, Economia** — impaginazione classica ("quotidiano")
+- **Attualità, Economia** — impaginazione classica ("quotidiano")
 - **Sport** — masthead condensato ad alto contrasto
 - **Tecnologia** — layout più visuale, masthead in corsivo ("magazine")
-- **Cultura, Gossip** — masthead elegante in corsivo ("rivista")
+- **Cultura** (include anche lo spettacolo: cinema, tv, musica) — masthead elegante in corsivo ("rivista")
+
+(Le sezioni Mondo e Gossip, presenti in una versione precedente, sono state rimosse: nessuna delle fonti disponibili le alimentava abbastanza da renderle utili, e complicavano la classificazione senza un vantaggio reale. Lo spettacolo è confluito in Cultura, come fanno molti quotidiani italiani.)
 
 Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile e riordinabile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
 
@@ -83,14 +85,14 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - **Corpo articolo**: molti feed pubblicano solo un riassunto, non il testo integrale. La vista articolo mostra quello che il feed fornisce, con un link "Leggi l'articolo originale" verso la fonte.
 - **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN, per confine di parola intero — non una sottostringa qualunque) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi o su feed senza categorie (un titolo come "Disco del Mese" non contiene alcuna parola chiave riconoscibile, quindi finisce nella sezione di default invece che in Cultura). Le fonti a tema unico (es. Sky Sport) hanno un `sectionHint` di ripiego, usato solo quando nessuna parola chiave trova un match reale altrove: senza, finivano quasi tutte nella sezione di default.
 - **Ranking di Prima Pagina**: solo recency × peso fonte configurabile, non un vero giudizio editoriale su cosa sia importante (l'"importanza" di una notizia resta indecidibile in automatico).
-- **Feed abbandonati lato editore**: alcuni publisher smettono di aggiornare un feed pubblico senza dismetterlo (risponde 200, header di cache "freschi", ma contenuti fermi a mesi o anni fa) — non distinguibile da un feed sano se non guardando le date reali degli articoli. Capita anche a fonti di default: se un articolo palesemente vecchio finisce in evidenza, la sezione mostra l'avviso "nessun articolo recente".
+- **Feed abbandonati lato editore**: alcuni publisher smettono di aggiornare un feed pubblico senza dismetterlo (risponde 200, header di cache "freschi", ma contenuti fermi a mesi o anni fa — verificato anche su corriere.it, fermo dal 2024) — non distinguibile da un feed sano se non guardando le date reali degli articoli. La scheda "Feed" segnala questo caso per fonte ("raggiungibile ma senza notizie recenti pubblicate"); se capita a una fonte di default, la sezione mostra invece l'avviso "nessun articolo recente" sull'articolo in evidenza.
 
 ## Roadmap
 
 - [x] Prototipo visivo dei layout
 - [x] Parsing reale dei feed RSS/Atom
 - [x] Aggregazione multi-fonte in un giornale composto a sezioni tematiche, con peso fonte configurabile
-- [x] Libreria di un 4° template editoriale ("rivista", per Cultura/Gossip)
+- [x] Libreria di un 4° template editoriale ("rivista", per Cultura)
 - [x] Prima fonte in inglese per testare l'aggregazione multilingua (BBC News — poi tolta dai default, vedi sotto: l'aggregazione multilingua resta pronta e testata, la strategia sul pubblico internazionale è da ripensare)
 - [x] Modalità notte (tema scuro per ognuno dei 4 template editoriali, segue il sistema finché non la imposti tu)
 - [x] Interfaccia in italiano/inglese, con rilevamento automatico della lingua (in ottica app nativa, dove verrebbe letta dal sistema)
@@ -118,7 +120,11 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Bottone di aggiornamento manuale: mostrava "Rilascia per aggiornare" (frase senza senso se non si è trascinato nulla) invece di "Aggiornamento in corso…"
 - [x] **Regressione**: il fix del trascinamento (sopra) bloccava anche il normale scroll verso il basso quando il tocco iniziava dalla cima della pagina — il listener `touchmove` sopprimeva lo scroll nativo per qualunque tocco partito a scrollTop 0, non solo per un vero trascinamento verso il basso. Corretto calcolando la direzione dalle coordinate touch, non solo dal fatto che si sia iniziato a tracciare
 - [x] Sky Sport troppo presente in Prima Pagina (pubblica più volte ogni 10 minuti, vince il ranking a sola recency anche con notizie sportive minori): peso di default ridotto a 0.5, e il tetto per fonte in "in breve" di Prima Pagina abbassato da 2 a 1
-- [ ] Dagospia come fonte Gossip: nessun feed RSS pubblico trovato (autodiscovery e percorsi comuni tutti falliti) — da riprovare se in futuro ne pubblicano uno
+- [x] **Bug strutturale trovato testando con più fonti**: hero e secondaria richiedevano un'immagine reale per essere scelti — fonti serie ma senza immagini (ANSA, Il Fatto Quotidiano) restavano sempre escluse dalla vetrina qualunque fosse il loro peso, mentre una fonte meno prioritaria ma "fotografata" (Sky Sport, HDblog) vinceva comunque. Rimosso il requisito per l'hero: ora vince il punteggio reale (recency × peso), l'immagine mostrata resta comunque un placeholder quando manca quella vera
+- [x] Sezioni Mondo e Gossip rimosse: nessuna fonte disponibile le alimentava a sufficienza, complicavano la classificazione senza vantaggio reale — lo spettacolo (cinema, tv, musica) è confluito in Cultura
+- [x] Sistema di peso poco chiaro (un singolo bottone con una lettera, da toccare a ciclo, senza indicare le altre opzioni): sostituito con un controllo a 3 segmenti (Basso/Normale/Alto) sempre visibile, valutato anche un riordino per posizione in stile sezioni ma scartato — con più fonti un peso diretto resta più preciso di una posizione in lista da reinterpretare
+- [x] Corriere.it non mostrava nulla dopo l'aggiunta: il suo feed RSS (trovato dal fallback su percorsi comuni) è anch'esso abbandonato lato editore, fermo al 2024 — non un bug nostro, ma ora la scheda "Feed" segnala esplicitamente per fonte "raggiungibile ma senza notizie recenti pubblicate" invece di restare silenziosa
+- [x] Aggiunte 3 fonti verificate (aggiornate in giornata, con curl) per test più approfonditi: Il Sole 24 Ore (Economia), RaiNews (categorie native ricche, si classifica bene da sola) e Sky TG24 (stesso editore/pattern di Sky Sport, peso ridotto di default per lo stesso motivo)
 - [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — da ripensare con calma, non di corsa
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
 - [x] Icona app dedicata (monogramma "A" in Fraunces su rosso, coerente col masthead)

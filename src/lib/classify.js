@@ -76,7 +76,7 @@ export function scoreArticle(article, sourceWeight = 1) {
 // mostrare una sezione vuota (con un avviso, vedi App.jsx).
 const FRESH_WINDOW_HOURS = 5 * 24;
 
-function isFresh(article) {
+export function isFresh(article) {
   const t = parseDate(article.pubDate);
   if (Number.isNaN(t)) return false;
   return (Date.now() - t) / 3600000 <= FRESH_WINDOW_HOURS;
@@ -113,8 +113,16 @@ function bucketArticles(sorted, { diversify = false } = {}) {
   const notFresh = sorted.filter((a) => !isFresh(a));
   const pool = diversify ? [...fresh, ...notFresh] : fresh.length > 0 ? fresh : sorted;
 
-  const withImage = pool.filter((a) => a.image);
-  const hero = withImage[0] || pool[0];
+  // L'hero è semplicemente il più rilevante del pool (punteggio più alto),
+  // immagine o no: richiederla escludeva strutturalmente fonti serie che
+  // semplicemente non ne pubblicano (ANSA, Il Fatto Quotidiano) da hero e
+  // secondaria in OGNI sezione, qualunque fosse il loro peso — chi aveva la
+  // priorità più alta ma nessuna immagine perdeva comunque contro una fonte
+  // meno prioritaria ma "fotografata" (verificato: Il Fatto Quotidiano con
+  // peso Alto restava sempre in "in breve"). La vista mostra comunque
+  // un'immagine (placeholder) per ogni hero, vera o no, quindi la resa
+  // visiva non cambia — solo cosa vince in base al punteggio reale.
+  const hero = pool[0];
   const rest = pool.filter((a) => a.id !== hero.id);
 
   // A differenza del pool (dove il ripiego sul non-fresco serve a non far
