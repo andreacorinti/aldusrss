@@ -9,10 +9,16 @@ const LANGUAGE_KEY = "aldusrss.language";
 // (quali lingue, quali fonti EN) resta da ripensare con calma — vedi issue #9.
 // L'aggregazione multilingua (assignSection con keyword IT+EN, selettore
 // lingua interfaccia) resta comunque pronta per quando si deciderà.
+// Gazzetta dello Sport sostituita da Sky Sport come fonte sportiva di
+// default: verificato (curl, agosto 2026) che https://www.gazzetta.it/rss/*
+// è di fatto abbandonato lato editore — tutte le varianti provate servono
+// contenuti fermi al 2023/2024 nonostante header di cache "freschi" — mentre
+// sport.sky.it/rss/sport.xml è realmente aggiornato in giornata e porta
+// immagini.
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
   { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1 },
-  { id: "gazzetta", url: "https://www.gazzetta.it/rss/home.xml", enabled: true, weight: 1 },
+  { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 1 },
 ];
 
 export function loadFeedList() {

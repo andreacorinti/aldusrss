@@ -265,7 +265,14 @@ function FrontPage({ view, lang, onOpenArticle }) {
 }
 
 const PULL_THRESHOLD = 70;
-const PULL_MAX_VISUAL = 90;
+// Oltre la soglia il dito può continuare a scorrere ben più a lungo di
+// quanto valga la pena mostrare: senza un limite via via più "duro" (elastico,
+// non un taglio secco) il gesto sembra un semplice spostamento del contenuto
+// invece che un trascinamento con resistenza — la sensazione "scattosa"
+// segnalata su dispositivo reale. Oltre la soglia il movimento del dito
+// continua a contare, solo molto attenuato.
+const PULL_RUBBER_BAND = 0.42;
+const INDICATOR_REST_HEIGHT = 56;
 
 // Aggiornamento con trascinamento verso il basso, il gesto tipico dei
 // telefoni. Approccio volutamente semplice ("osserva e attiva" invece di una
@@ -274,13 +281,27 @@ const PULL_MAX_VISUAL = 90;
 // dispositivo reale. Qui si osserva il gesto in modo passivo, senza mai
 // intercettare lo scroll nativo — si traccia solo quando il contenuto è già
 // in cima (scrollTop 0), quindi non c'è nulla con cui entrare in conflitto.
-function PullToRefresh({ onRefresh, refreshing, chrome, children }) {
+function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }) {
   const [pull, setPull] = useState(0);
   const [isTracking, setIsTracking] = useState(false);
+  const [committed, setCommitted] = useState(false);
   const trackingRef = useRef(false);
   const startYRef = useRef(0);
   const pullRef = useRef(0);
   const scrollElRef = useRef(null);
+  const wasRefreshingRef = useRef(refreshing);
+
+  // Quando l'aggiornamento avviato dal gesto finisce, richiude l'indicatore:
+  // mentre `refreshing` è true l'altezza segue lui, non `pull` (vedi
+  // `indicatorHeight` sotto), quindi va comunque azzerato per quando torna a
+  // false, altrimenti l'indicatore resterebbe aperto in modo permanente.
+  useEffect(() => {
+    if (wasRefreshingRef.current && !refreshing) {
+      pullRef.current = 0;
+      setPull(0);
+    }
+    wasRefreshingRef.current = refreshing;
+  }, [refreshing]);
 
   function handlePointerDown(e) {
     const el = scrollElRef.current;
@@ -299,25 +320,39 @@ function PullToRefresh({ onRefresh, refreshing, chrome, children }) {
       setIsTracking(false);
       pullRef.current = 0;
       setPull(0);
+      setCommitted(false);
       return;
     }
     const deltaY = e.clientY - startYRef.current;
-    const next = deltaY > 0 ? Math.min(deltaY, PULL_MAX_VISUAL) : 0;
+    const next =
+      deltaY <= 0
+        ? 0
+        : deltaY <= PULL_THRESHOLD
+          ? deltaY
+          : PULL_THRESHOLD + (deltaY - PULL_THRESHOLD) * PULL_RUBBER_BAND;
     pullRef.current = next;
     setPull(next);
+    setCommitted(next >= PULL_THRESHOLD);
   }
 
   function endPull() {
     if (!trackingRef.current) return;
     trackingRef.current = false;
     setIsTracking(false);
-    if (pullRef.current >= PULL_THRESHOLD) onRefresh();
+    const shouldRefresh = pullRef.current >= PULL_THRESHOLD;
+    if (shouldRefresh) onRefresh();
     pullRef.current = 0;
-    setPull(0);
+    setCommitted(false);
+    // Se parte l'aggiornamento, l'altezza resta quella "a riposo" (guidata da
+    // `refreshing`) invece di azzerarsi: azzerare qui e lasciare che
+    // `refreshing` la riporti su un istante dopo produceva un salto visibile
+    // giù-e-su, invece di una transizione continua verso l'icona che gira.
+    setPull(shouldRefresh ? INDICATOR_REST_HEIGHT : 0);
   }
 
   const progress = Math.min(pull / PULL_THRESHOLD, 1);
-  const indicatorHeight = refreshing ? 36 : pull;
+  const indicatorHeight = refreshing ? INDICATOR_REST_HEIGHT : pull;
+  const label = committed || refreshing ? t(lang, "releaseToRefresh") : t(lang, "pullToRefresh");
 
   return (
     <div
@@ -329,16 +364,28 @@ function PullToRefresh({ onRefresh, refreshing, chrome, children }) {
       onPointerCancel={endPull}
     >
       <div
-        className="flex items-center justify-center"
-        style={{ height: indicatorHeight, overflow: "hidden", transition: isTracking ? "none" : "height 200ms ease" }}
+        className="flex flex-col items-center justify-center gap-1"
+        style={{ height: indicatorHeight, overflow: "hidden", transition: isTracking ? "none" : "height 260ms cubic-bezier(0.34, 1.2, 0.4, 1)" }}
       >
         {(pull > 4 || refreshing) && (
-          <RefreshCw
-            size={18}
-            color={chrome.ink}
-            className={refreshing ? "animate-spin" : ""}
-            style={refreshing ? undefined : { transform: `rotate(${progress * 360}deg)`, opacity: progress }}
-          />
+          <>
+            <RefreshCw
+              size={18}
+              color={committed || refreshing ? accent : chrome.ink}
+              className={refreshing ? "animate-spin" : ""}
+              style={
+                refreshing
+                  ? undefined
+                  : { transform: `rotate(${progress * 360}deg) scale(${0.7 + progress * 0.3})`, opacity: Math.max(progress, 0.35) }
+              }
+            />
+            <span
+              className="text-[10.5px] font-semibold uppercase tracking-wide"
+              style={{ color: committed || refreshing ? accent : chrome.ink, opacity: committed || refreshing ? 1 : 0.55 }}
+            >
+              {label}
+            </span>
+          </>
         )}
       </div>
       {children}
@@ -921,7 +968,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <PullToRefresh onRefresh={refreshAllFeeds} refreshing={isRefreshing} chrome={chrome}>
+            <PullToRefresh onRefresh={refreshAllFeeds} refreshing={isRefreshing} chrome={chrome} accent={currentView.accent} lang={lang}>
               <FrontPage view={currentView} lang={lang} onOpenArticle={() => setArticle(true)} />
             </PullToRefresh>
           </>

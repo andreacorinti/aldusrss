@@ -4,8 +4,33 @@ export function stripHtml(html) {
   return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
 }
 
+const IT_MONTHS = {
+  gen: "Jan", feb: "Feb", mar: "Mar", apr: "Apr", mag: "May", giu: "Jun",
+  lug: "Jul", ago: "Aug", set: "Sep", ott: "Oct", nov: "Nov", dic: "Dec",
+};
+
+// `Date.parse` capisce solo l'inglese: un feed che localizza il pubDate in
+// italiano (es. Sky Sport: "gio, 27 ago 2026 10:10:00 GMT") viene letto come
+// data non valida, e un articolo pubblicato oggi finisce trattato come
+// "senza data" — invisibile alla finestra di freschezza, silenziosamente
+// spinto in fondo all'ordinamento per recency. Qui si tenta prima il parsing
+// nativo e, solo se fallisce, si prova a tradurre il mese abbreviato in
+// italiano prima di riprovare.
+export function parseDate(dateStr) {
+  if (!dateStr) return NaN;
+  const direct = Date.parse(dateStr);
+  if (!Number.isNaN(direct)) return direct;
+  const match = dateStr.match(/(\d{1,2})\s+([a-zà-ù]{3,})\.?\s+(\d{4})\s+(\d{2}:\d{2}(?::\d{2})?)\s*(.*)$/i);
+  if (!match) return NaN;
+  const [, day, monthRaw, year, time, tz] = match;
+  const monthEn = IT_MONTHS[monthRaw.toLowerCase().slice(0, 3)];
+  if (!monthEn) return NaN;
+  return Date.parse(`${day} ${monthEn} ${year} ${time} ${tz}`.trim());
+}
+
 export function relativeTime(dateStr, lang = "it") {
-  const d = new Date(dateStr);
+  const t = parseDate(dateStr);
+  const d = new Date(t);
   if (Number.isNaN(d.getTime())) return "";
   const diffMs = Date.now() - d.getTime();
   const min = Math.floor(diffMs / 60000);

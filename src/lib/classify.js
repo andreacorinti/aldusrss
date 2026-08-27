@@ -1,4 +1,5 @@
 import { SECTIONS, DEFAULT_SECTION_ID } from "./sections";
+import { parseDate } from "./format";
 
 // Le categorie native del feed (quando presenti) sono un segnale molto più
 // affidabile di qualunque euristica sul titolo: un feed che tagga un articolo
@@ -33,7 +34,7 @@ export function assignSection(article) {
 const RECENCY_HALF_LIFE_HOURS = 8;
 
 export function scoreArticle(article, sourceWeight = 1) {
-  const t = Date.parse(article.pubDate);
+  const t = parseDate(article.pubDate);
   const ageHours = Number.isNaN(t) ? 999 : Math.max(0, (Date.now() - t) / 3600000);
   const recency = Math.pow(0.5, ageHours / RECENCY_HALF_LIFE_HOURS);
   return recency * sourceWeight;
@@ -51,7 +52,7 @@ export function scoreArticle(article, sourceWeight = 1) {
 const FRESH_WINDOW_HOURS = 5 * 24;
 
 function isFresh(article) {
-  const t = Date.parse(article.pubDate);
+  const t = parseDate(article.pubDate);
   if (Number.isNaN(t)) return false;
   return (Date.now() - t) / 3600000 <= FRESH_WINDOW_HOURS;
 }
@@ -72,7 +73,6 @@ function bucketArticles(sorted, { diversify = false } = {}) {
   if (sorted.length === 0) return { hero: null, secondary: [], brief: [], stale: false };
 
   const fresh = sorted.filter(isFresh);
-  const stale = fresh.length === 0;
 
   // Con `diversify` (Prima Pagina) filtrare l'intero pool sul solo fresco
   // prima di diversificare per fonte finiva per escludere del tutto una
@@ -114,7 +114,12 @@ function bucketArticles(sorted, { diversify = false } = {}) {
     brief.push(a);
   }
 
-  return { hero, secondary, brief, stale };
+  // Riferito all'hero effettivamente mostrato, non a "esiste un fresco da
+  // qualche parte nel pool": con `diversify` una fonte può restare fresca
+  // (es. ANSA) ma senza immagini, e l'hero (che le richiede) ripiegare
+  // comunque su un pezzo vecchio di un'altra fonte — l'avviso deve riflettere
+  // quello che l'utente vede in cima, non lo stato generico della sezione.
+  return { hero, secondary, brief, stale: !isFresh(hero) };
 }
 
 export function composeArticles(articles, sourceWeights = {}, options = {}) {

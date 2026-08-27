@@ -8,7 +8,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 ## Demo
 
-Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia e Gazzetta dello Sport, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
+Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia e Sky Sport, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni
 - **Attualità, Mondo, Economia** — impaginazione classica ("quotidiano")
@@ -52,8 +52,9 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - **Proxy CORS**: molti feed non inviano header `Access-Control-Allow-Origin`, quindi il browser non può scaricarli direttamente. Il prototipo prova prima il fetch diretto e, se fallisce, ricade su una catena di proxy CORS pubblici (con timeout per tentativo, così uno "appeso" non blocca gli altri) — un workaround client-side best-effort, non un'infrastruttura nostra. L'elenco è isolato in `src/lib/rss.js` ed è facile da estendere. Il problema si riduce molto passando a Capacitor/Tauri: restano comunque un motore web, ma senza le restrizioni CORS del browser sandboxato su un dominio pubblico.
 - **Autodiscovery del feed da un sito**: stesso meccanismo e stessi limiti del punto sopra, aggravati dal fatto che una homepage pesa in genere molto più di un feed XML (verificato: 1MB+ per diverse testate) — i proxy CORS pubblici gratuiti spesso rifiutano payload di quella dimensione. Funziona in modo affidabile quando il sito invia header CORS permissivi anche sulla homepage (raro) o quando la pagina è leggera; altrimenti va ancora incollato il link diretto al feed.
 - **Corpo articolo**: molti feed pubblicano solo un riassunto, non il testo integrale. La vista articolo mostra quello che il feed fornisce, con un link "Leggi l'articolo originale" verso la fonte.
-- **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi.
+- **Classificazione in sezioni**: è un'euristica a parole chiave (IT+EN) sulle categorie/titolo dell'articolo, non una vera comprensione del testo — può sbagliare, specie su fonti generaliste che trattano molti temi o su feed senza categorie (un titolo come "Disco del Mese" non contiene alcuna parola chiave riconoscibile, quindi finisce nella sezione di default invece che in Cultura).
 - **Ranking di Prima Pagina**: solo recency × peso fonte configurabile, non un vero giudizio editoriale su cosa sia importante (l'"importanza" di una notizia resta indecidibile in automatico).
+- **Feed abbandonati lato editore**: alcuni publisher smettono di aggiornare un feed pubblico senza dismetterlo (risponde 200, header di cache "freschi", ma contenuti fermi a mesi o anni fa) — non distinguibile da un feed sano se non guardando le date reali degli articoli. Capita anche a fonti di default: se un articolo palesemente vecchio finisce in evidenza, la sezione mostra l'avviso "nessun articolo recente".
 
 ## Roadmap
 
@@ -70,10 +71,13 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 
 ### Piano per il futuro (priorità: Android prima del resto)
 
-- [ ] **Prima Pagina monopolizzata da una singola fonte** (bug trovato testando con un feed reale): serve un tetto per fonte in hero+secondaria, oggi assente in `bucketArticles`
+- [x] Prima Pagina monopolizzata da una singola fonte (tetto per fonte in hero+secondaria+in breve, `bucketArticles`)
 - [ ] Menù hamburger in alto a sinistra senza funzione: dargli uno scopo reale o rimuoverlo
-- [ ] Trascinamento sezioni poco fluido su movimenti veloci: serve un'animazione vera (tecnica FLIP) invece dello snap discreto attuale
+- [x] Riordino sezioni: sostituito il trascinamento (inaffidabile su dispositivo reale) con frecce su/giù
 - [x] BBC News tolta dalle fonti di default (solo italiane per ora)
+- [x] Gazzetta dello Sport tolta dai default (feed abbandonato lato editore, contenuti fermi al 2023/2024): sostituita da Sky Sport
+- [x] Bug immagini Wired: `<media:content/>` vuoto veniva letto prima di `<media:thumbnail/>`, scartando l'immagine reale
+- [x] Aggiornamento con trascinamento: indicatore con etichetta "Trascina/Rilascia per aggiornare" e resistenza elastica oltre la soglia, invece dello snap secco iniziale
 - [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — da ripensare con calma, non di corsa
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
 - [x] Icona app dedicata (monogramma "A" in Fraunces su rosso, coerente col masthead)

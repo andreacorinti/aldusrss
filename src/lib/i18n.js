@@ -53,6 +53,8 @@ const STRINGS = {
     emptyNoFeeds: 'Nessun feed configurato. Aggiungine uno dalla scheda "Feed".',
     loadingPaper: "Caricamento del giornale in corso…",
     refreshFeeds: "Aggiorna i feed",
+    pullToRefresh: "Trascina per aggiornare",
+    releaseToRefresh: "Rilascia per aggiornare",
   },
   en: {
     frontPage: "Front Page",
@@ -98,6 +100,8 @@ const STRINGS = {
     emptyNoFeeds: 'No feeds configured yet. Add one from the "Feeds" tab.',
     loadingPaper: "Loading your paper…",
     refreshFeeds: "Refresh feeds",
+    pullToRefresh: "Pull to refresh",
+    releaseToRefresh: "Release to refresh",
   },
 };
 

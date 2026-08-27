@@ -61,8 +61,15 @@ function extractImage(itemEl, descriptionHtml) {
       if (u) return u;
     }
   }
-  const media = itemEl.getElementsByTagName("media:content")[0] || itemEl.getElementsByTagName("media:thumbnail")[0];
-  if (media) {
+  // Alcuni feed (es. Wired) dichiarano <media:content/> vuoto (nessun
+  // attributo url, l'immagine reale sta in <media:thumbnail>): prendere solo
+  // il primo elemento trovato, a prescindere da url, scartava silenziosamente
+  // immagini reali disponibili nel tag successivo.
+  const mediaEls = [
+    ...itemEl.getElementsByTagName("media:content"),
+    ...itemEl.getElementsByTagName("media:thumbnail"),
+  ];
+  for (const media of mediaEls) {
     const u = media.getAttribute("url");
     if (u) return u;
   }
@@ -161,6 +168,32 @@ export function parseFeed(xmlText) {
 // (lo standard usato da tutti i lettori RSS per il tasto "aggiungi da sito").
 // Così l'utente può incollare l'indirizzo del sito invece di dover cercare e
 // copiare l'URL del feed a mano.
+// Alcuni siti (es. corriere.it) non dichiarano affatto il tag di autodiscovery
+// in homepage pur avendo un feed valido, raggiungibile su un percorso
+// convenzionale. Provati solo come ultima spiaggia, dopo che l'autodiscovery
+// standard non ha trovato nulla, e solo se il risultato è davvero un feed
+// (mai un 200 generico: molti siti rispondono 200 con una pagina HTML anche
+// su percorsi inesistenti).
+const COMMON_FEED_PATHS = ["/feed", "/feed/", "/rss.xml", "/rss", "/rss/homepage.xml", "/index.xml"];
+
+// In parallelo come fetchTextWithFallback: provarli in sequenza (fino a 6
+// percorsi, ognuno con la sua catena di proxy) potrebbe costare fino a un
+// minuto prima di arrendersi.
+async function tryCommonFeedPaths(pageUrl) {
+  const base = new URL(pageUrl);
+  const attempts = COMMON_FEED_PATHS.map(async (path) => {
+    const candidate = new URL(path, base).href;
+    const text = await fetchTextWithFallback(candidate);
+    parseFeed(text);
+    return candidate;
+  });
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    return null;
+  }
+}
+
 export async function discoverFeedUrl(pageUrl) {
   const html = await fetchTextWithFallback(pageUrl);
   const doc = new DOMParser().parseFromString(html, "text/html");
@@ -177,5 +210,5 @@ export async function discoverFeedUrl(pageUrl) {
       // href malformato, prova il prossimo candidato
     }
   }
-  return null;
+  return await tryCommonFeedPaths(pageUrl);
 }
