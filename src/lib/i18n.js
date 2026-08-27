@@ -55,6 +55,7 @@ const STRINGS = {
     refreshFeeds: "Aggiorna i feed",
     pullToRefresh: "Trascina per aggiornare",
     releaseToRefresh: "Rilascia per aggiornare",
+    refreshingLabel: "Aggiornamento in corso…",
   },
   en: {
     frontPage: "Front Page",
@@ -102,6 +103,7 @@ const STRINGS = {
     refreshFeeds: "Refresh feeds",
     pullToRefresh: "Pull to refresh",
     releaseToRefresh: "Release to refresh",
+    refreshingLabel: "Refreshing…",
   },
 };
 

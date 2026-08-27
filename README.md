@@ -8,7 +8,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 ## Demo
 
-Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + un feed dedicato a Economia), Wired Italia, Sky Sport e HDblog.it, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
+Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + feed dedicati a Economia e Cultura), Wired Italia, Sky Sport e HDblog.it, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni
 - **Attualità, Mondo, Economia** — impaginazione classica ("quotidiano")
@@ -82,6 +82,11 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Bug classificazione per sottostringa (es. "arte" dentro "partecipanti"): passato a un match per confine di parola intero
 - [x] Attualità monopolizzata da Sky Sport: aggiunto `sectionHint` di ripiego per le fonti a tema unico
 - [x] Economia/Tecnologia con notizie vecchie (Wired aggiorna il proprio feed con settimane di ritardo, verificato lato editore): aggiunte ANSA Economia e HDblog.it come fonti di default aggiuntive, verificate aggiornate in giornata
+- [x] `sectionHint` troppo aggressivo su HDblog.it: non è una fonte a tema unico (pubblica anche contenuto generalista, es. "Bollette e caro vita"), l'hint forzava tutto dentro Tecnologia — rimosso, si affida al match a parole chiave (aggiunte "android"/"iphone"/ecc.)
+- [x] Cultura senza fonti fresche (solo Wired, stesso problema di Economia): aggiunta ANSA Cultura
+- [x] Prima Pagina: la vetrina (hero+secondaria) poteva comunque ripiegare su un pezzo vecchio se nessun'altra fonte-con-immagine fresca era disponibile — ora la vetrina non pesca mai dal non-fresco (meglio una riga più corta), "in breve" resta più permissivo
+- [x] **Bug reale trovato su dispositivo/emulatore Android**: il trascinamento per aggiornare sembrava "uno scatto senza feedback" perché il WebView riconosceva il gesto come scroll nativo dopo pochi pixel e smetteva di consegnare eventi a React — serviva un listener `touchmove` esplicitamente non passivo (invisibile nei test da browser desktop, dove i pointer event sintetici non passano dalla stessa pipeline touch)
+- [x] Bottone di aggiornamento manuale: mostrava "Rilascia per aggiornare" (frase senza senso se non si è trascinato nulla) invece di "Aggiornamento in corso…"
 - [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — da ripensare con calma, non di corsa
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
 - [x] Icona app dedicata (monogramma "A" in Fraunces su rosso, coerente col masthead)

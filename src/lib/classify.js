@@ -116,11 +116,19 @@ function bucketArticles(sorted, { diversify = false } = {}) {
   const hero = withImage[0] || pool[0];
   const rest = pool.filter((a) => a.id !== hero.id);
 
+  // A differenza del pool (dove il ripiego sul non-fresco serve a non far
+  // sparire del tutto una fonte "quiet"), la vetrina di Prima Pagina
+  // (hero+secondaria) non deve mai mostrare un pezzo vecchio solo perché è
+  // rimasta l'unica fonte-con-immagine non ancora usata dal tetto per fonte:
+  // meglio una riga più corta che una notizia di settimane fa in prima fila.
+  // "In breve" resta più permissivo (vedi sopra).
+  const freshIds = new Set(fresh.map((a) => a.id));
   const sourceCounts = new Map([[hero.sourceId, 1]]);
   const secondary = [];
   for (const a of rest) {
     if (secondary.length >= 3) break;
     if (!a.image) continue;
+    if (diversify && !freshIds.has(a.id)) continue;
     if (diversify && sourceCounts.has(a.sourceId)) continue;
     secondary.push(a);
     sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);

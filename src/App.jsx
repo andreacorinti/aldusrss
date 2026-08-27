@@ -275,12 +275,11 @@ const PULL_RUBBER_BAND = 0.42;
 const INDICATOR_REST_HEIGHT = 56;
 
 // Aggiornamento con trascinamento verso il basso, il gesto tipico dei
-// telefoni. Approccio volutamente semplice ("osserva e attiva" invece di una
-// fisica di trascinamento accurata) dopo l'esperienza con il riordino delle
-// sezioni: lì un gesto più elaborato è risultato poco affidabile su un
-// dispositivo reale. Qui si osserva il gesto in modo passivo, senza mai
-// intercettare lo scroll nativo — si traccia solo quando il contenuto è già
-// in cima (scrollTop 0), quindi non c'è nulla con cui entrare in conflitto.
+// telefoni. Si traccia solo quando il contenuto è già in cima (scrollTop 0).
+// Il listener touchmove non passivo più sotto è essenziale, non opzionale:
+// senza, il WebView Android riconosce il gesto come scroll/bounce nativo
+// dopo pochi pixel e smette di consegnare eventi a React, qualunque sia la
+// distanza reale del trascinamento (verificato su emulatore reale).
 function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }) {
   const [pull, setPull] = useState(0);
   const [isTracking, setIsTracking] = useState(false);
@@ -302,6 +301,24 @@ function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }
     }
     wasRefreshingRef.current = refreshing;
   }, [refreshing]);
+
+  // I gestori onPointer* di React non bastano da soli su WebView Android: il
+  // browser riconosce lo scroll nativo/bounce dopo pochi pixel e smette di
+  // consegnare pointermove a React, indipendentemente da preventDefault()
+  // chiamato lì (verificato su emulatore reale — il pull restava sempre a
+  // pochi px qualunque fosse la distanza reale del trascinamento). Serve un
+  // listener nativo `touchmove` esplicitamente non passivo: solo così
+  // preventDefault() sopprime davvero il gesto di scroll nativo per la
+  // durata del pull.
+  useEffect(() => {
+    const el = scrollElRef.current;
+    if (!el) return;
+    const onTouchMove = (e) => {
+      if (trackingRef.current) e.preventDefault();
+    };
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
 
   function handlePointerDown(e) {
     const el = scrollElRef.current;
@@ -352,12 +369,17 @@ function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }
 
   const progress = Math.min(pull / PULL_THRESHOLD, 1);
   const indicatorHeight = refreshing ? INDICATOR_REST_HEIGHT : pull;
-  const label = committed || refreshing ? t(lang, "releaseToRefresh") : t(lang, "pullToRefresh");
+  // "Rilascia per aggiornare" ha senso solo mentre si sta ancora trascinando:
+  // un aggiornamento avviato dal bottone in alto (non da un pull) passa
+  // comunque per `refreshing`, e mostrare "rilascia" in quel caso non
+  // avrebbe senso (l'utente non ha trascinato nulla).
+  const label = refreshing ? t(lang, "refreshingLabel") : committed ? t(lang, "releaseToRefresh") : t(lang, "pullToRefresh");
 
   return (
     <div
       ref={scrollElRef}
       className="flex-1 overflow-y-auto"
+      style={{ overscrollBehaviorY: "contain" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endPull}

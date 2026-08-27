@@ -43,6 +43,7 @@ export const SECTIONS = {
       "videogiochi", "gaming", "digitale", "scienza",
       "technology", "tech", "science", "robot",
       "games", "game", "videogame", "esports", "playstation", "xbox", "nintendo",
+      "android", "ios", "app", "iphone", "samsung", "app store",
     ],
   },
   cultura: {
