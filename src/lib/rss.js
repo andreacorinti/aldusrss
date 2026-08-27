@@ -1,9 +1,15 @@
 // Proxy CORS pubblici di fallback, provati in ordine finché uno risponde.
 // Nessuno è garantito: sono servizi di terzi best-effort, non un'infrastruttura
 // nostra (vedi README, sezione "Limiti noti").
+//
+// corsproxy.io tolto: da qualche tempo risponde 401 "A valid API key is
+// required" su ogni richiesta, qualunque sia la fonte (verificato con curl,
+// agosto 2026) — non un problema di una fonte specifica, il servizio è di
+// fatto morto per un uso senza chiave. proxy.cors.sh lo sostituisce (stesso
+// controllo: risponde 200 in centinaia di ms su più fonti diverse).
 const CORS_PROXIES = [
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  (url) => `https://proxy.cors.sh/${url}`,
 ];
 
 // Ridotto da 6000: con l'aggiunta di una fonte che incatena più tentativi in

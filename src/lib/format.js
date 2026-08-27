@@ -52,16 +52,12 @@ function hashString(str) {
   return Math.abs(hash);
 }
 
+// Usato per il riquadro-monogramma delle fonti senza immagine reale nel feed
+// (es. ANSA): una foto stock scelta a caso (l'approccio precedente) sembra
+// sempre "sbagliata" perché non ha alcun rapporto col contenuto — un colore
+// coerente per fonte è onesto sul fatto che non è una foto dell'articolo,
+// pur restando visivamente identificabile.
 export function hashAccentColor(seed) {
   const hue = hashString(seed) % 360;
   return `hsl(${hue}, 45%, 34%)`;
-}
-
-// Il seed è spesso l'id/guid dell'articolo, che per alcuni feed (es. ANSA) è
-// l'URL completo dell'articolo: passato così com'è a picsum.photos produce un
-// seed enorme e "strano" che il servizio non gestisce bene (risposta non
-// valida, bloccata dal browser come ORB). Riducendolo a un breve hash
-// numerico prima di usarlo evita il problema qualunque sia l'id in ingresso.
-export function placeholderImage(seed, w, h) {
-  return `https://picsum.photos/seed/${hashString(seed)}/${w}/${h}`;
 }

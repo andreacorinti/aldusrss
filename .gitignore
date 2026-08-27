@@ -38,3 +38,6 @@ android/*.jks
 android/*.keystore
 **/*.jks
 **/*.keystore
+
+# Linux desktop (Electron) — build artifacts, non il progetto in sé
+release

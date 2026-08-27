@@ -65,6 +65,13 @@ export const CURATED_PACKS = [
       { id: "bbc-news", url: "https://feeds.bbci.co.uk/news/rss.xml", label: "BBC News", weight: 1 },
       { id: "guardian-world", url: "https://www.theguardian.com/world/rss", label: "The Guardian", weight: 1 },
       { id: "npr", url: "https://feeds.npr.org/1001/rss.xml", label: "NPR", weight: 1 },
+      // URL del feed diretto (Feedburner), non l'homepage: ekathimerini.com è
+      // dietro una sfida anti-bot Cloudflare che blocca sia il fetch diretto
+      // sia l'autodiscovery (la pagina restituita è la sfida, non l'HTML
+      // reale con il tag <link rel="alternate">) — l'indirizzo del sito da
+      // solo non basta, va aggiunto così. Il feed Feedburner invece non è
+      // protetto e risponde regolarmente (verificato con curl, agosto 2026).
+      { id: "ekathimerini", url: "https://feeds.feedburner.com/ekathimerini/sKip", label: "Ekathimerini", weight: 1 },
     ],
   },
   {
@@ -74,7 +81,6 @@ export const CURATED_PACKS = [
       { id: "everyeye", url: "https://www.everyeye.it/rss/notizie.xml", label: "Everyeye.it", weight: 1, sectionHint: "tecnologia" },
       { id: "ign-it", url: "https://it.ign.com/feed.xml", label: "IGN Italia", weight: 1, sectionHint: "tecnologia" },
       { id: "gamesurf", url: "https://www.gamesurf.it/feed/", label: "GameSurf", weight: 1, sectionHint: "tecnologia" },
-      { id: "game-experience", url: "https://www.game-experience.it/feed/", label: "Game-eXperience.it", weight: 1, sectionHint: "tecnologia" },
       { id: "animeclick", url: "https://www.animeclick.it/rss", label: "AnimeClick", weight: 1, sectionHint: "cultura" },
       { id: "mangaforever", url: "https://www.mangaforever.net/feed/", label: "MangaForever", weight: 1, sectionHint: "cultura" },
       // Blog personale, contenuto misto (internet, videogiochi, musica

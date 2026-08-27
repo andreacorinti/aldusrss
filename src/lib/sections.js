@@ -16,16 +16,39 @@ export const SECTIONS = {
     id: "economia",
     label: "Economia",
     templateId: "quotidiano",
-    keywords: ["economia", "finanza", "borsa", "mercati", "lavoro", "business", "economy", "markets", "finance"],
+    keywords: [
+      "economia", "finanza", "borsa", "mercati", "lavoro", "business",
+      "inflazione", "pil", "spread", "fisco", "tasse", "manovra",
+      "recessione", "occupazione", "disoccupazione", "stipendi", "pensioni",
+      "bce", "banca centrale", "petrolio", "obbligazioni",
+      "economy", "markets", "finance", "inflation", "stock market", "gdp",
+      "recession", "unemployment", "wall street", "nasdaq", "interest rates",
+    ],
   },
   sport: {
     id: "sport",
     label: "Sport",
     templateId: "sportivo",
+    // Ampliato (segnalato dall'utente: fonti generaliste come ANSA/RaiNews non
+    // taggano quasi mai la categoria, quindi la classificazione dipende quasi
+    // solo dal titolo — squadre, competizioni e nomi di atleti molto seguiti
+    // che non contengono mai le parole generiche "calcio"/"sport" restavano
+    // in Attualità, sfuggendo così anche allo sconto di Prima Pagina per lo
+    // sport). Nomi propri limitati a pochi atleti di punta evergreen: una
+    // lista esaustiva richiederebbe manutenzione continua.
     keywords: [
-      "calcio", "tennis", "basket", "volley", "ciclismo", "formula 1", "nba", "serie a", "motogp",
-      "pallavolo", "rugby", "golf", "nuoto", "olimpiadi", "sport",
-      "football", "soccer", "cricket", "olympics", "athletics",
+      "calcio", "tennis", "basket", "pallacanestro", "volley", "pallavolo", "ciclismo",
+      "formula 1", "f1", "nba", "serie a", "serie b", "motogp", "moto gp",
+      "rugby", "golf", "nuoto", "pallanuoto", "olimpiadi", "paralimpiadi", "sport",
+      "champions league", "europa league", "conference league", "coppa italia",
+      "supercoppa", "mondiali", "mondiale", "europei", "nations league",
+      "premier league", "liga", "bundesliga", "ligue 1", "atp", "wta",
+      "giro d'italia", "tour de france", "coppa davis",
+      "scudetto", "derby", "atletica", "maratona",
+      "boxe", "pugilato", "sinner", "alcaraz", "djokovic",
+      "football", "soccer", "cricket", "olympics", "paralympics", "athletics",
+      "world cup", "grand slam", "wimbledon",
+      "formula one", "boxing", "cycling",
     ],
   },
   tecnologia: {
@@ -39,6 +62,9 @@ export const SECTIONS = {
       "games", "game", "videogame", "esports", "playstation", "xbox", "nintendo",
       "android", "ios", "app", "iphone", "samsung", "app store",
       "chrome", "windows", "stampa 3d", "3d printing",
+      "criptovalute", "bitcoin", "blockchain", "sicurezza informatica",
+      "cybersicurezza", "hacker", "cloud", "chatgpt",
+      "cybersecurity", "cryptocurrency", "artificial intelligence", "startup",
     ],
   },
   // Include anche lo spettacolo (cinema, tv, celebrità): tolta la sezione
@@ -54,6 +80,9 @@ export const SECTIONS = {
       "culture", "arts", "film", "books",
       "spettacolo", "spettacoli", "entertainment", "celebrity",
       "anime", "manga", "manhwa", "cosplay",
+      "serie tv", "concerto", "concerti", "festival", "mostra", "mostre",
+      "romanzo", "danza", "oscar", "sanremo", "netflix",
+      "tv series", "streaming", "grammy",
     ],
   },
 };
