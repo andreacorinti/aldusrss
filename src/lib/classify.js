@@ -58,11 +58,30 @@ export function assignSection(article, sectionHint) {
 // moltiplicata per il peso che l'utente assegna alla fonte in "Feed".
 const RECENCY_HALF_LIFE_HOURS = 8;
 
-export function scoreArticle(article, sourceWeight = 1) {
+// Solo per Prima Pagina (mai per la sezione stessa, dove sarebbe sbagliato:
+// Sport deve ovviamente restare guidata dallo sport). Senza, la prima
+// notizia in evidenza finiva a tema sportivo/tech ogni volta che quella
+// fonte pubblicava qualcosa di anche solo un po' più fresco dell'ultima
+// notizia generalista — cosa comune, essendo Sky Sport/HDblog molto
+// prolifici — mentre in un vero giornale la notizia di apertura è quasi
+// sempre di cronaca/attualità, salvo eventi eccezionali (finali, guerre,
+// crolli di mercato). Il fattore non esclude mai lo sport dalla vetrina,
+// lo rende semplicemente competitivo solo quando è nettamente più fresco
+// della cronaca del momento, non alla pari.
+const FRONT_PAGE_SECTION_FACTOR = {
+  attualita: 1,
+  economia: 0.85,
+  sport: 0.5,
+  tecnologia: 0.55,
+  cultura: 0.55,
+};
+
+export function scoreArticle(article, sourceWeight = 1, { frontPage = false } = {}) {
   const t = parseDate(article.pubDate);
   const ageHours = Number.isNaN(t) ? 999 : Math.max(0, (Date.now() - t) / 3600000);
   const recency = Math.pow(0.5, ageHours / RECENCY_HALF_LIFE_HOURS);
-  return recency * sourceWeight;
+  const sectionFactor = frontPage ? (FRONT_PAGE_SECTION_FACTOR[article.section] ?? 1) : 1;
+  return recency * sourceWeight * sectionFactor;
 }
 
 // Il decadimento esponenziale da solo ordina ma non scarta mai: se un feed
@@ -165,8 +184,10 @@ function bucketArticles(sorted, { diversify = false } = {}) {
 }
 
 export function composeArticles(articles, sourceWeights = {}, options = {}) {
+  const scoreOpts = { frontPage: !!options.diversify };
   const sorted = [...articles].sort(
-    (a, b) => scoreArticle(b, sourceWeights[b.sourceId] ?? 1) - scoreArticle(a, sourceWeights[a.sourceId] ?? 1)
+    (a, b) =>
+      scoreArticle(b, sourceWeights[b.sourceId] ?? 1, scoreOpts) - scoreArticle(a, sourceWeights[a.sourceId] ?? 1, scoreOpts)
   );
   return bucketArticles(sorted, options);
 }
