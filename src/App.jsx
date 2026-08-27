@@ -766,19 +766,18 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
       <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>{t(lang, "tabSettings")}</h2>
 
       <div className="mt-4 p-4 rounded-lg space-y-4" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
-        <div className="flex items-center justify-between">
+        <button onClick={onToggleDarkMode} className="w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Moon size={15} color={chrome.ink} />
             <p className="text-[14px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "darkModeLabel")}</p>
           </div>
-          <button
-            onClick={onToggleDarkMode}
+          <span
             className="w-9 h-5 rounded-full relative shrink-0"
             style={{ backgroundColor: darkMode ? chrome.success : chrome.divider }}
           >
             <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: darkMode ? "18px" : "2px" }} />
-          </button>
-        </div>
+          </span>
+        </button>
       </div>
 
       <div className="mt-3 p-4 rounded-lg space-y-3" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
