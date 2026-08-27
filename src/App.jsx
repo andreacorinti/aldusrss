@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
-import { Menu, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, GripVertical } from "lucide-react";
+import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, GripVertical } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
@@ -125,13 +125,13 @@ function StatusBar({ ink }) {
   );
 }
 
-function Masthead({ view, lang, onMenu }) {
+function Masthead({ view, lang, onRefresh, refreshing }) {
   const today = new Date().toLocaleDateString(lang === "en" ? "en-GB" : "it-IT", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div className="px-5 pt-2 pb-3">
       <div className="flex items-center justify-between">
-        <button onClick={onMenu} className="p-1 -ml-1">
-          <Menu size={20} style={{ color: view.ink }} />
+        <button onClick={onRefresh} disabled={refreshing} className="p-1 -ml-1" aria-label={t(lang, "refreshFeeds")}>
+          <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} style={{ color: view.ink }} />
         </button>
         <div className="text-center flex-1" style={{ ...view.mastheadStyle, color: view.ink, fontSize: "22px", lineHeight: 1 }}>
           AldusRSS
@@ -652,6 +652,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const refreshAllFeeds = useCallback(() => {
+    feedList.forEach((f) => refreshSource(f));
+  }, [feedList, refreshSource]);
+
   const addFeed = useCallback(async (url) => {
     const id = crypto.randomUUID();
     let feedUrl = url;
@@ -742,6 +746,7 @@ export default function App() {
   const lang = useMemo(() => resolveLanguage(languagePref), [languagePref]);
 
   const anyReady = Object.values(sources).some((s) => s && (s.status === "ready" || s.status === "stale"));
+  const isRefreshing = Object.values(sources).some((s) => s && s.status === "loading");
 
   const allArticles = useMemo(() => {
     const list = [];
@@ -830,7 +835,7 @@ export default function App() {
 
         {tab === "front" && anyReady && !article && (
           <>
-            <Masthead view={currentView} lang={lang} onMenu={() => {}} />
+            <Masthead view={currentView} lang={lang} onRefresh={refreshAllFeeds} refreshing={isRefreshing} />
             <div className="px-5 flex gap-2 pb-3 overflow-x-auto">
               {sectionTabs.map((st) => (
                 <button

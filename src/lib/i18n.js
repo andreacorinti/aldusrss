@@ -50,6 +50,7 @@ const STRINGS = {
     creditsLine: "Realizzato da Andrea Corinti",
     emptyNoFeeds: 'Nessun feed configurato. Aggiungine uno dalla scheda "Feed".',
     loadingPaper: "Caricamento del giornale in corso…",
+    refreshFeeds: "Aggiorna i feed",
   },
   en: {
     frontPage: "Front Page",
@@ -92,6 +93,7 @@ const STRINGS = {
     creditsLine: "Made by Andrea Corinti",
     emptyNoFeeds: 'No feeds configured yet. Add one from the "Feeds" tab.',
     loadingPaper: "Loading your paper…",
+    refreshFeeds: "Refresh feeds",
   },
 };
 
