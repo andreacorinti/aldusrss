@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
@@ -260,6 +260,88 @@ function FrontPage({ view, lang, onOpenArticle }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+const PULL_THRESHOLD = 70;
+const PULL_MAX_VISUAL = 90;
+
+// Aggiornamento con trascinamento verso il basso, il gesto tipico dei
+// telefoni. Approccio volutamente semplice ("osserva e attiva" invece di una
+// fisica di trascinamento accurata) dopo l'esperienza con il riordino delle
+// sezioni: lì un gesto più elaborato è risultato poco affidabile su un
+// dispositivo reale. Qui si osserva il gesto in modo passivo, senza mai
+// intercettare lo scroll nativo — si traccia solo quando il contenuto è già
+// in cima (scrollTop 0), quindi non c'è nulla con cui entrare in conflitto.
+function PullToRefresh({ onRefresh, refreshing, chrome, children }) {
+  const [pull, setPull] = useState(0);
+  const [isTracking, setIsTracking] = useState(false);
+  const trackingRef = useRef(false);
+  const startYRef = useRef(0);
+  const pullRef = useRef(0);
+  const scrollElRef = useRef(null);
+
+  function handlePointerDown(e) {
+    const el = scrollElRef.current;
+    if (!el || el.scrollTop > 0 || refreshing) return;
+    trackingRef.current = true;
+    setIsTracking(true);
+    startYRef.current = e.clientY;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e) {
+    if (!trackingRef.current) return;
+    const el = scrollElRef.current;
+    if (!el || el.scrollTop > 0) {
+      trackingRef.current = false;
+      setIsTracking(false);
+      pullRef.current = 0;
+      setPull(0);
+      return;
+    }
+    const deltaY = e.clientY - startYRef.current;
+    const next = deltaY > 0 ? Math.min(deltaY, PULL_MAX_VISUAL) : 0;
+    pullRef.current = next;
+    setPull(next);
+  }
+
+  function endPull() {
+    if (!trackingRef.current) return;
+    trackingRef.current = false;
+    setIsTracking(false);
+    if (pullRef.current >= PULL_THRESHOLD) onRefresh();
+    pullRef.current = 0;
+    setPull(0);
+  }
+
+  const progress = Math.min(pull / PULL_THRESHOLD, 1);
+  const indicatorHeight = refreshing ? 36 : pull;
+
+  return (
+    <div
+      ref={scrollElRef}
+      className="flex-1 overflow-y-auto"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endPull}
+      onPointerCancel={endPull}
+    >
+      <div
+        className="flex items-center justify-center"
+        style={{ height: indicatorHeight, overflow: "hidden", transition: isTracking ? "none" : "height 200ms ease" }}
+      >
+        {(pull > 4 || refreshing) && (
+          <RefreshCw
+            size={18}
+            color={chrome.ink}
+            className={refreshing ? "animate-spin" : ""}
+            style={refreshing ? undefined : { transform: `rotate(${progress * 360}deg)`, opacity: progress }}
+          />
+        )}
+      </div>
+      {children}
     </div>
   );
 }
@@ -724,7 +806,13 @@ export default function App() {
   const chrome = darkMode ? CHROME_DARK : CHROME_LIGHT;
   const lang = useMemo(() => resolveLanguage(languagePref), [languagePref]);
 
-  const anyReady = Object.values(sources).some((s) => s && (s.status === "ready" || s.status === "stale"));
+  // "loading" può voler dire "primo caricamento in corso, nessun dato ancora"
+  // oppure "refresh in corso, ma i dati della volta precedente ci sono
+  // ancora". Solo il primo caso deve nascondere la pagina: nel secondo,
+  // continuare a mostrare i vecchi articoli mentre i nuovi arrivano in
+  // background è molto meno spiazzante di far sparire tutto e ricomparire.
+  const hasArticles = (entry) => !!entry && Array.isArray(entry.articles);
+  const anyReady = Object.values(sources).some(hasArticles);
   const isRefreshing = Object.values(sources).some((s) => s && s.status === "loading");
 
   const allArticles = useMemo(() => {
@@ -732,7 +820,7 @@ export default function App() {
     for (const feed of feedList) {
       if (!feed.enabled) continue;
       const entry = sources[feed.id];
-      if (!entry || (entry.status !== "ready" && entry.status !== "stale")) continue;
+      if (!hasArticles(entry)) continue;
       const sourceName = entry.feedMeta?.title || feed.url;
       for (const a of entry.articles || []) {
         list.push({ ...a, sourceId: feed.id, sourceName, section: a.section || DEFAULT_SECTION_ID });
@@ -833,9 +921,9 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <PullToRefresh onRefresh={refreshAllFeeds} refreshing={isRefreshing} chrome={chrome}>
               <FrontPage view={currentView} lang={lang} onOpenArticle={() => setArticle(true)} />
-            </div>
+            </PullToRefresh>
           </>
         )}
 
