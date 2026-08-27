@@ -5,6 +5,7 @@ import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
+import { CURATED_PACKS } from "./lib/curatedFeeds";
 import { stripHtml, relativeTime, placeholderImage } from "./lib/format";
 import { LANGUAGES, resolveLanguage, t } from "./lib/i18n";
 import {
@@ -465,11 +466,19 @@ function ArticleView({ view, lang, onBack }) {
   );
 }
 
-function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightChange, chrome, lang }) {
+function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, onWeightChange, chrome, lang }) {
   const [adding, setAdding] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [addError, setAddError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [addingPackId, setAddingPackId] = useState(null);
+
+  async function handleAddPack(pack) {
+    setAddingPackId(pack.id);
+    await onAddPack(pack.feeds);
+    setAddingPackId(null);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -566,6 +575,52 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onWeightCha
             </div>
           );
         })}
+
+        <div className="mt-1">
+          <button
+            onClick={() => setDiscoverOpen((v) => !v)}
+            className="w-full py-2.5 rounded-lg text-[12.5px] font-medium flex items-center justify-center gap-1.5"
+            style={{ color: chrome.ink, opacity: 0.75, fontFamily: "'Inter', sans-serif" }}
+          >
+            {discoverOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {t(lang, "discoverFeedsButton")}
+          </button>
+          {discoverOpen && (
+            <div className="space-y-2 mt-1">
+              <p className="text-[11.5px] px-1" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
+                {t(lang, "discoverFeedsHint")}
+              </p>
+              {CURATED_PACKS.map((pack) => {
+                const existingUrls = new Set(feedList.map((f) => f.url));
+                const newCount = pack.feeds.filter((cf) => !existingUrls.has(cf.url)).length;
+                const isAdding = addingPackId === pack.id;
+                return (
+                  <div key={pack.id} className="p-3 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[13.5px] font-medium" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>
+                          {t(lang, `section.${pack.sectionId}`)}
+                        </p>
+                        <p className="text-[11px] truncate" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>
+                          {pack.feeds.map((f) => f.label).join(" · ")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleAddPack(pack)}
+                        disabled={isAdding || newCount === 0}
+                        className="shrink-0 px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5"
+                        style={{ backgroundColor: chrome.ink, color: chrome.screenBg, opacity: isAdding || newCount === 0 ? 0.45 : 1 }}
+                      >
+                        {isAdding && <Loader2 size={12} className="animate-spin" />}
+                        {newCount === 0 ? t(lang, "packAllAdded") : t(lang, "packAddAll")}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {adding ? (
           <form onSubmit={handleSubmit} className="p-3 rounded-lg border border-dashed" style={{ borderColor: chrome.divider }}>
@@ -796,6 +851,28 @@ export default function App() {
     feedList.forEach((f) => refreshSource(f));
   }, [feedList, refreshSource]);
 
+  // Importa in blocco un pacchetto di fonti curate (curatedFeeds.js): gli
+  // URL sono già noti e verificati, quindi non serve l'autodiscovery usata
+  // per un URL incollato a mano — salta semplicemente chi è già in elenco.
+  const addFeedsBulk = useCallback(async (curatedFeeds) => {
+    const existingUrls = new Set(feedList.map((f) => f.url));
+    const toAdd = curatedFeeds.filter((cf) => !existingUrls.has(cf.url));
+    if (toAdd.length === 0) return;
+    const newFeeds = toAdd.map((cf) => ({
+      id: crypto.randomUUID(),
+      url: cf.url,
+      enabled: true,
+      weight: cf.weight ?? 1,
+      ...(cf.sectionHint ? { sectionHint: cf.sectionHint } : {}),
+    }));
+    setFeedList((prev) => {
+      const next = [...prev, ...newFeeds];
+      saveFeedList(next);
+      return next;
+    });
+    await Promise.all(newFeeds.map((f) => refreshSource(f)));
+  }, [feedList, refreshSource]);
+
   const addFeed = useCallback(async (url) => {
     const id = crypto.randomUUID();
     let feedUrl = url;
@@ -1018,7 +1095,7 @@ export default function App() {
 
         {tab === "feeds" && (
           <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
-            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
+            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onAddPack={addFeedsBulk} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
           </div>
         )}
 

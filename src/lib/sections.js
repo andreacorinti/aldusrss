@@ -38,6 +38,7 @@ export const SECTIONS = {
       "technology", "tech", "science", "robot",
       "games", "game", "videogame", "esports", "playstation", "xbox", "nintendo",
       "android", "ios", "app", "iphone", "samsung", "app store",
+      "chrome", "windows", "stampa 3d", "3d printing",
     ],
   },
   // Include anche lo spettacolo (cinema, tv, celebrità): tolta la sezione

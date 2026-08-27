@@ -22,12 +22,19 @@ const LANGUAGE_KEY = "aldusrss.language";
 // come "calcio") — senza un ripiego finivano quasi tutte nella sezione di
 // default (Attualità), monopolizzandola. Vedi `assignSection` in
 // classify.js: usato solo quando nessuna parola chiave ha già trovato un
-// match reale altrove. HDblog.it (nonostante il nome) pubblica anche
-// contenuto generalista non tech (es. "Bollette e caro vita", nessuna
-// categoria) — un hint "tecnologia" forzava anche quello dentro Tecnologia.
-// Niente hint per lui: si affida al match a parole chiave (categorie tipo
-// "Android"/"Motorola", aggiunte a sections.js), lasciando che il resto
-// ricada correttamente in Attualità.
+// match reale altrove.
+//
+// HDblog.it tolta dai default (resta comunque nel pacchetto curato
+// Tecnologia, vedi curatedFeeds.js, per chi la vuole comunque): nonostante
+// il nome pubblica anche contenuto generalista non tech (es. "Bollette e
+// caro vita"), quindi non può avere un hint — ma questo significa che
+// anche il suo contenuto genuinamente tech senza parola chiave riconoscibile
+// (es. "Grovigli di cavi nei cassetti? Si risolve con la stampa 3D", nessuna
+// categoria) ricadeva in Attualità, sfuggendo così anche allo sconto
+// editoriale di Prima Pagina per Tecnologia (basato sulla sezione assegnata,
+// quindi sbagliata in quel caso) — risultato: vinceva l'hero al posto di
+// vera cronaca. DDay.it, verificata a tema tech omogeneo, la sostituisce
+// con un hint sicuro.
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
   { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1 },
@@ -40,7 +47,7 @@ export const DEFAULT_FEEDS = [
   { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 0.5, sectionHint: "sport" },
   { id: "ansa-economia", url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", enabled: true, weight: 1, sectionHint: "economia" },
   { id: "ansa-cultura", url: "https://www.ansa.it/sito/notizie/cultura/cultura_rss.xml", enabled: true, weight: 1, sectionHint: "cultura" },
-  { id: "hdblog", url: "https://www.hdblog.it/rss/", enabled: true, weight: 1 },
+  { id: "dday", url: "https://www.dday.it/rss", enabled: true, weight: 1, sectionHint: "tecnologia" },
   { id: "sole24ore-economia", url: "https://www.ilsole24ore.com/rss/economia.xml", enabled: true, weight: 1, sectionHint: "economia" },
   // Categorie native ricche e affidabili (Cronaca, Borsa italiana, Cinema e
   // serie tv...): quasi mai deve ripiegare sul titolo, si classifica bene da

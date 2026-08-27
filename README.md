@@ -8,7 +8,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 ## Demo
 
-Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + feed dedicati a Economia e Cultura), Wired Italia, Sky Sport, HDblog.it, Il Sole 24 Ore (Economia), RaiNews e Sky TG24, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
+Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + feed dedicati a Economia e Cultura), Wired Italia, Sky Sport, DDay.it, Il Sole 24 Ore (Economia), RaiNews e Sky TG24, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni
 - **Attualità, Economia** — impaginazione classica ("quotidiano")
@@ -19,6 +19,8 @@ Il prototipo carica feed RSS/Atom reali — di default ANSA (generalista + feed 
 (Le sezioni Mondo e Gossip, presenti in una versione precedente, sono state rimosse: nessuna delle fonti disponibili le alimentava abbastanza da renderle utili, e complicavano la classificazione senza un vantaggio reale. Lo spettacolo è confluito in Cultura, come fanno molti quotidiani italiani.)
 
 Ogni sezione mostra solo se ha almeno un articolo, ed è nascondibile e riordinabile dalle Impostazioni. Nessun contatore di "non letti": il giornale si aggiorna da solo, lo apri quando vuoi tu.
+
+Dalla scheda "Feed", il pulsante "Scopri fonti consigliate" mostra pacchetti di feed aggiuntivi verificati, divisi per tema (`src/lib/curatedFeeds.js`), da aggiungere in blocco invece di cercarli uno a uno.
 
 Per aggiungere una fonte non serve trovare e incollare l'URL esatto del feed: basta l'indirizzo del sito (es. `corriere.it`) e AldusRSS prova a scoprire da solo il feed collegato, leggendo il tag standard che il sito stesso dichiara nella pagina (lo stesso meccanismo di "autodiscovery" usato da tutti i lettori RSS). Se il sito non lo dichiara, o se la pagina è troppo pesante per i proxy CORS pubblici, resta comunque possibile incollare il link diretto al feed.
 
@@ -126,8 +128,11 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Corriere.it non mostrava nulla dopo l'aggiunta: il suo feed RSS (trovato dal fallback su percorsi comuni) è anch'esso abbandonato lato editore, fermo al 2024 — non un bug nostro, ma ora la scheda "Feed" segnala esplicitamente per fonte "raggiungibile ma senza notizie recenti pubblicate" invece di restare silenziosa
 - [x] Aggiunte 3 fonti verificate (aggiornate in giornata, con curl) per test più approfonditi: Il Sole 24 Ore (Economia), RaiNews (categorie native ricche, si classifica bene da sola) e Sky TG24 (stesso editore/pattern di Sky Sport, peso ridotto di default per lo stesso motivo)
 - [x] La notizia di apertura di Prima Pagina finiva a tema sportivo/tech troppo spesso anche senza eventi eccezionali: aggiunto un fattore fisso per sezione nel ranking (solo per Prima Pagina, mai per la sezione stessa), che rispecchia la convenzione reale per cui un giornale apre con la cronaca, non con lo sport, salvo occasioni speciali
+- [x] **Bug trovato dopo il fix sopra**: il fattore per sezione si basa sulla sezione assegnata all'articolo, non sul suo vero argomento — un articolo di HDblog genuinamente tech ma senza parola chiave riconoscibile ("Grovigli di cavi nei cassetti? Si risolve con la stampa 3D") ricadeva in Attualità (nessun `sectionHint`, per non forzare lì anche il suo contenuto generalista) e quindi sfuggiva allo sconto pensato per Tecnologia, vincendo comunque l'hero. HDblog.it tolta dai default (resta nel pacchetto curato Tecnologia per chi la vuole comunque), sostituita da DDay.it — verificata a tema tech omogeneo, con `sectionHint` sicuro
+- [x] "Scopri fonti consigliate": pacchetti di feed verificati per tema (Attualità, Economia, Sport, Tecnologia, Cultura) da aggiungere in blocco dalla scheda Feed, invece di cercare e incollare ogni URL a mano
+- [x] Lettura offline: priorità ridimensionata (vedi sopra) dopo un confronto con l'utente
 - [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — da ripensare con calma, non di corsa
-- [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
+- [ ] Lettura offline: priorità ridimensionata dopo un confronto con l'utente — il valore reale è quasi tutto già coperto dalla cache esistente (mostra l'ultimo elenco scaricato anche senza rete); il testo integrale degli articoli resta comunque sui siti delle fonti, quindi senza rete non sarebbe comunque apribile. Non prioritaria per ora.
 - [x] Icona app dedicata (monogramma "A" in Fraunces su rosso, coerente col masthead)
 - [ ] Splash screen dedicato (oggi quello di default di Capacitor)
 - [x] Build di release firmata (`npm run android:build:release` / `android:bundle:release`), chiave propria generata e configurata — vedi README, sezione Distribuzione
