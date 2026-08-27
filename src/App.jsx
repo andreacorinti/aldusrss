@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl, runWithConcurrency } from "./lib/rss";
@@ -24,6 +24,16 @@ import {
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500;1,9..144,700&family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
+
+/* Dissolvenza per le immagini di hero/secondaria quando cambia sezione: senza,
+   il cambio di src era un "pop" istantaneo, percepito come scattoso nonostante
+   fosse comunque immediato (segnalato testando il cambio di sezione). Serve un
+   key legato al contenuto (non un indice di posizione) perché React rimonti
+   davvero il nodo e faccia ripartire l'animazione — vedi FrontPage in App.jsx. */
+@keyframes aldusPhotoIn {
+  from { opacity: 0; transform: scale(1.015); }
+  to { opacity: 1; transform: scale(1); }
+}
 `;
 
 // Nel browser (demo) l'app disegna la propria cornice "telefono" (bordo
@@ -203,7 +213,13 @@ function FrontPage({ view, lang, onOpenArticle }) {
       )}
       {/* Hero */}
       <button className="block w-full text-left" onClick={onOpenArticle}>
-        <img src={view.hero.image} alt="" className="w-full aspect-[4/3] object-cover" />
+        <img
+          key={view.hero.link}
+          src={view.hero.image}
+          alt=""
+          className="w-full aspect-[4/3] object-cover"
+          style={{ animation: "aldusPhotoIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
+        />
         <div className="mt-3">
           <Kicker text={view.hero.kicker} accent={view.accent} />
           <h1
@@ -232,9 +248,15 @@ function FrontPage({ view, lang, onOpenArticle }) {
         <>
           <div className="mt-5 h-px" style={{ backgroundColor: view.ink, opacity: 0.15 }} />
           <div className="grid grid-cols-2 gap-4 mt-5">
-            {view.secondary.map((item, i) => (
-              <a key={i} href={item.link} target="_blank" rel="noreferrer" className="block">
-                <img src={item.image} alt="" className="w-full aspect-[5/4] object-cover" />
+            {view.secondary.map((item) => (
+              <a key={item.link} href={item.link} target="_blank" rel="noreferrer" className="block">
+                <img
+                  key={item.link}
+                  src={item.image}
+                  alt=""
+                  className="w-full aspect-[5/4] object-cover"
+                  style={{ animation: "aldusPhotoIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
+                />
                 <Kicker text={item.kicker} accent={view.accent} />
                 <h3 className="mt-1" style={{ ...view.headlineStyle, color: view.ink, fontSize: "15px", lineHeight: 1.15 }}>
                   {item.title}
@@ -289,21 +311,52 @@ const PULL_THRESHOLD = 70;
 const PULL_RUBBER_BAND = 0.42;
 const INDICATOR_REST_HEIGHT = 56;
 
-// Aggiornamento con trascinamento verso il basso, il gesto tipico dei
-// telefoni. Si traccia solo quando il contenuto è già in cima (scrollTop 0).
-// Il listener touchmove non passivo più sotto è essenziale, non opzionale:
-// senza, il WebView Android riconosce il gesto come scroll/bounce nativo
-// dopo pochi pixel e smette di consegnare eventi a React, qualunque sia la
-// distanza reale del trascinamento (verificato su emulatore reale).
-function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }) {
+// Zona morta prima di decidere se un gesto è verticale (pull-to-refresh /
+// scroll) o orizzontale (cambio sezione): senza, un trascinamento quasi
+// dritto ma con un filo di deriva nell'altro asse veniva interpretato in
+// modo ambiguo o addirittura in entrambi i modi. Il gesto resta "indeciso"
+// (nessun effetto) finché non supera questa distanza in una direzione
+// chiaramente prevalente.
+const SWIPE_LOCK_DISTANCE = 10;
+// Soglia di trascinamento orizzontale per cambiare sezione, e durata/curva
+// dell'animazione di uscita+ingresso quando scatta il cambio — la stessa
+// che già anima le immagini (aldusPhotoIn in FONTS), per coerenza.
+const SWIPE_THRESHOLD = 60;
+const SWIPE_TRANSITION_MS = 220;
+// Resistenza quando si trascina oltre l'ultima sezione o prima di "Prima
+// Pagina": stesso principio del rimbalzo elastico verticale (vedi
+// PULL_RUBBER_BAND), per far sentire che non c'è altro da quel lato invece
+// di un trascinamento che semplicemente non fa nulla.
+const SWIPE_RUBBER_BAND = 0.35;
+
+// Gestisce sia l'aggiornamento con trascinamento verso il basso sia il
+// cambio sezione con trascinamento laterale — un solo set di listener touch
+// nativi per evitare che i due gesti si accavallino o si rubino a vicenda
+// gli eventi (vedi sotto per il perché non bastano i gestori onPointer* di
+// React).
+//
+// Il listener touchmove non passivo è essenziale, non opzionale: senza, il
+// WebView Android riconosce il gesto come scroll/bounce nativo dopo pochi
+// pixel e smette di consegnare eventi a React, qualunque sia la distanza
+// reale del trascinamento (verificato su emulatore reale).
+function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, onSwipeNext, onSwipePrev, hasNext, hasPrev, children }) {
   const [pull, setPull] = useState(0);
   const [isTracking, setIsTracking] = useState(false);
   const [committed, setCommitted] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [swiping, setSwiping] = useState(false);
   const trackingRef = useRef(false);
+  const axisRef = useRef(null); // null finché indeciso, poi "v" o "h" per l'intero gesto
+  const startXRef = useRef(0);
   const startYRef = useRef(0);
   const pullRef = useRef(0);
+  const dragXRef = useRef(0);
   const scrollElRef = useRef(null);
   const wasRefreshingRef = useRef(refreshing);
+  const gestureRef = useRef({ onSwipeNext, onSwipePrev, hasNext, hasPrev });
+  useLayoutEffect(() => {
+    gestureRef.current = { onSwipeNext, onSwipePrev, hasNext, hasPrev };
+  });
 
   // Quando l'aggiornamento avviato dal gesto finisce, richiude l'indicatore:
   // mentre `refreshing` è true l'altezza segue lui, non `pull` (vedi
@@ -317,81 +370,121 @@ function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }
     wasRefreshingRef.current = refreshing;
   }, [refreshing]);
 
-  // I gestori onPointer* di React non bastano da soli su WebView Android: il
-  // browser riconosce lo scroll nativo/bounce dopo pochi pixel e smette di
-  // consegnare pointermove a React, indipendentemente da preventDefault()
-  // chiamato lì (verificato su emulatore reale — il pull restava sempre a
-  // pochi px qualunque fosse la distanza reale del trascinamento). Serve un
-  // listener nativo `touchmove` esplicitamente non passivo: solo così
-  // preventDefault() sopprime davvero il gesto di scroll nativo per la
-  // durata del pull.
-  //
-  // `trackingRef` da solo non basta come condizione: si attiva su qualunque
-  // tocco che inizia a scrollTop 0, incluso un normale scroll verso il basso
-  // (dito che scorre verso l'alto) fatto partendo dalla cima della pagina —
-  // bloccarlo sempre rompeva lo scroll ogni volta che si iniziava a toccare
-  // dall'inizio del contenuto (bug reale trovato testando su dispositivo).
-  // Va soppresso solo il vero trascinamento verso il basso: calcolato qui
-  // in autonomia dalle coordinate touch, senza dipendere dall'ordine di
-  // arrivo rispetto a onPointerMove.
   useEffect(() => {
     const el = scrollElRef.current;
     if (!el) return;
-    const onTouchMove = (e) => {
-      if (!trackingRef.current) return;
+
+    function onTouchStart(e) {
+      if (refreshing) return;
       const touch = e.touches[0];
-      if (touch && touch.clientY > startYRef.current) e.preventDefault();
-    };
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    return () => el.removeEventListener("touchmove", onTouchMove);
-  }, []);
-
-  function handlePointerDown(e) {
-    const el = scrollElRef.current;
-    if (!el || el.scrollTop > 0 || refreshing) return;
-    trackingRef.current = true;
-    setIsTracking(true);
-    startYRef.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function handlePointerMove(e) {
-    if (!trackingRef.current) return;
-    const el = scrollElRef.current;
-    if (!el || el.scrollTop > 0) {
-      trackingRef.current = false;
-      setIsTracking(false);
-      pullRef.current = 0;
-      setPull(0);
-      setCommitted(false);
-      return;
+      if (!touch) return;
+      axisRef.current = null;
+      startXRef.current = touch.clientX;
+      startYRef.current = touch.clientY;
     }
-    const deltaY = e.clientY - startYRef.current;
-    const next =
-      deltaY <= 0
-        ? 0
-        : deltaY <= PULL_THRESHOLD
-          ? deltaY
-          : PULL_THRESHOLD + (deltaY - PULL_THRESHOLD) * PULL_RUBBER_BAND;
-    pullRef.current = next;
-    setPull(next);
-    setCommitted(next >= PULL_THRESHOLD);
-  }
 
-  function endPull() {
-    if (!trackingRef.current) return;
-    trackingRef.current = false;
-    setIsTracking(false);
-    const shouldRefresh = pullRef.current >= PULL_THRESHOLD;
-    if (shouldRefresh) onRefresh();
-    pullRef.current = 0;
-    setCommitted(false);
-    // Se parte l'aggiornamento, l'altezza resta quella "a riposo" (guidata da
-    // `refreshing`) invece di azzerarsi: azzerare qui e lasciare che
-    // `refreshing` la riporti su un istante dopo produceva un salto visibile
-    // giù-e-su, invece di una transizione continua verso l'icona che gira.
-    setPull(shouldRefresh ? INDICATOR_REST_HEIGHT : 0);
-  }
+    // `trackingRef` da solo non basta come condizione per il pull verticale:
+    // si attiverebbe su qualunque tocco che inizia a scrollTop 0, incluso un
+    // normale scroll verso il basso (dito che scorre verso l'alto) fatto
+    // partendo dalla cima della pagina — bloccarlo sempre rompeva lo scroll
+    // ogni volta che si iniziava a toccare dall'inizio del contenuto (bug
+    // reale trovato testando su dispositivo). Va soppresso solo il vero
+    // trascinamento verso il basso, deciso qui in autonomia dalle coordinate
+    // touch.
+    function onTouchMove(e) {
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startXRef.current;
+      const dy = touch.clientY - startYRef.current;
+
+      if (axisRef.current === null) {
+        if (Math.hypot(dx, dy) < SWIPE_LOCK_DISTANCE) return;
+        axisRef.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+        if (axisRef.current === "v") {
+          trackingRef.current = el.scrollTop === 0 && dy > 0;
+          if (trackingRef.current) setIsTracking(true);
+        } else {
+          setSwiping(true);
+        }
+      }
+
+      if (axisRef.current === "h") {
+        e.preventDefault();
+        const { hasNext, hasPrev } = gestureRef.current;
+        const resisted = (dx < 0 && !hasNext) || (dx > 0 && !hasPrev);
+        const next = resisted ? dx * SWIPE_RUBBER_BAND : dx;
+        dragXRef.current = next;
+        setDragX(next);
+        return;
+      }
+
+      if (!trackingRef.current) return;
+      if (el.scrollTop > 0) {
+        trackingRef.current = false;
+        setIsTracking(false);
+        pullRef.current = 0;
+        setPull(0);
+        setCommitted(false);
+        return;
+      }
+      e.preventDefault();
+      const next =
+        dy <= 0 ? 0 : dy <= PULL_THRESHOLD ? dy : PULL_THRESHOLD + (dy - PULL_THRESHOLD) * PULL_RUBBER_BAND;
+      pullRef.current = next;
+      setPull(next);
+      setCommitted(next >= PULL_THRESHOLD);
+    }
+
+    function onTouchEnd() {
+      if (axisRef.current === "h") {
+        setSwiping(false);
+        const dx = dragXRef.current;
+        const { onSwipeNext, onSwipePrev, hasNext, hasPrev } = gestureRef.current;
+        const exitDistance = (el.clientWidth || 400) + 40;
+        if (dx <= -SWIPE_THRESHOLD && hasNext) {
+          setDragX(-exitDistance);
+          window.setTimeout(() => {
+            onSwipeNext();
+            setDragX(0);
+          }, SWIPE_TRANSITION_MS);
+        } else if (dx >= SWIPE_THRESHOLD && hasPrev) {
+          setDragX(exitDistance);
+          window.setTimeout(() => {
+            onSwipePrev();
+            setDragX(0);
+          }, SWIPE_TRANSITION_MS);
+        } else {
+          setDragX(0);
+        }
+        dragXRef.current = 0;
+      } else if (axisRef.current === "v" && trackingRef.current) {
+        trackingRef.current = false;
+        setIsTracking(false);
+        const shouldRefresh = pullRef.current >= PULL_THRESHOLD;
+        if (shouldRefresh) onRefresh();
+        pullRef.current = 0;
+        setCommitted(false);
+        // Se parte l'aggiornamento, l'altezza resta quella "a riposo" (guidata
+        // da `refreshing`) invece di azzerarsi: azzerare qui e lasciare che
+        // `refreshing` la riporti su un istante dopo produceva un salto
+        // visibile giù-e-su, invece di una transizione continua verso
+        // l'icona che gira.
+        setPull(shouldRefresh ? INDICATOR_REST_HEIGHT : 0);
+      }
+      axisRef.current = null;
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [refreshing, onRefresh]);
 
   const progress = Math.min(pull / PULL_THRESHOLD, 1);
   const indicatorHeight = refreshing ? INDICATOR_REST_HEIGHT : pull;
@@ -402,15 +495,7 @@ function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }
   const label = refreshing ? t(lang, "refreshingLabel") : committed ? t(lang, "releaseToRefresh") : t(lang, "pullToRefresh");
 
   return (
-    <div
-      ref={scrollElRef}
-      className="flex-1 overflow-y-auto"
-      style={{ overscrollBehaviorY: "contain" }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={endPull}
-      onPointerCancel={endPull}
-    >
+    <div ref={scrollElRef} className="flex-1 overflow-y-auto" style={{ overscrollBehaviorY: "contain" }}>
       <div
         className="flex flex-col items-center justify-center gap-1"
         style={{ height: indicatorHeight, overflow: "hidden", transition: isTracking ? "none" : "height 260ms cubic-bezier(0.34, 1.2, 0.4, 1)" }}
@@ -436,7 +521,14 @@ function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }
           </>
         )}
       </div>
-      {children}
+      <div
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition: swiping ? "none" : `transform ${SWIPE_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -1024,6 +1116,27 @@ export default function App() {
     }
   }, [visibleSections, activeSection]);
 
+  // Trascinamento laterale sul contenuto per passare alla scheda successiva/
+  // precedente, come le schede in alto ma senza dover per forza toccarle —
+  // stesso ordine di "Prima Pagina" + sezioni visibili.
+  const activeTabIndex = sectionTabs.findIndex((st) => st.id === activeSection);
+  const hasNextSection = activeTabIndex >= 0 && activeTabIndex < sectionTabs.length - 1;
+  const hasPrevSection = activeTabIndex > 0;
+  const goToNextSection = useCallback(() => {
+    setActiveSection((prev) => {
+      const idx = sectionTabs.findIndex((st) => st.id === prev);
+      return idx === -1 || idx >= sectionTabs.length - 1 ? prev : sectionTabs[idx + 1].id;
+    });
+    setArticle(false);
+  }, [sectionTabs]);
+  const goToPrevSection = useCallback(() => {
+    setActiveSection((prev) => {
+      const idx = sectionTabs.findIndex((st) => st.id === prev);
+      return idx <= 0 ? prev : sectionTabs[idx - 1].id;
+    });
+    setArticle(false);
+  }, [sectionTabs]);
+
   const currentView = useMemo(() => {
     const isFront = activeSection === FRONT_PAGE_ID;
     const articles = isFront ? allArticles : allArticles.filter((a) => a.section === activeSection);
@@ -1086,7 +1199,17 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <PullToRefresh onRefresh={refreshAllFeeds} refreshing={isRefreshing} chrome={chrome} accent={currentView.accent} lang={lang}>
+            <PullToRefresh
+              onRefresh={refreshAllFeeds}
+              refreshing={isRefreshing}
+              chrome={chrome}
+              accent={currentView.accent}
+              lang={lang}
+              onSwipeNext={goToNextSection}
+              onSwipePrev={goToPrevSection}
+              hasNext={hasNextSection}
+              hasPrev={hasPrevSection}
+            >
               <FrontPage view={currentView} lang={lang} onOpenArticle={() => setArticle(true)} />
             </PullToRefresh>
           </>

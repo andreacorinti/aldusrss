@@ -174,6 +174,20 @@ function bucketArticles(sorted, { diversify = false } = {}) {
   const sourceCounts = new Map([[hero.sourceId, 1]]);
   const sectionCounts = new Map([[hero.section, 1]]);
   const secondary = [];
+  const brief = [];
+
+  // Piazza un pezzo "garantito" (primo giro, sotto) in secondaria se ha
+  // un'immagine e c'è posto, altrimenti in breve — mai perso solo perché
+  // capitava di non avere una foto. Ritorna false se non c'è più posto da
+  // nessuna parte.
+  function placeGuaranteed(a) {
+    if (a.image && secondary.length < 3) secondary.push(a);
+    else if (brief.length < 6) brief.push(a);
+    else return false;
+    sourceCounts.set(a.sourceId, (sourceCounts.get(a.sourceId) || 0) + 1);
+    sectionCounts.set(a.section, (sectionCounts.get(a.section) || 0) + 1);
+    return true;
+  }
 
   // Primo giro (solo Prima Pagina): prende il pezzo migliore di ogni sezione
   // diversa da quella dell'hero, come farebbe un caporedattore che spartisce
@@ -199,6 +213,26 @@ function bucketArticles(sorted, { diversify = false } = {}) {
     }
   }
 
+  // Primo giro (fuori da Prima Pagina, dentro una singola sezione): garantisce
+  // un pezzo per ogni fonte distinta che ha qualcosa di fresco da mostrare,
+  // prima di lasciare che il punteggio (che premia chi pubblica di più) la
+  // faccia sparire del tutto dietro a una fonte più prolifica — anche se
+  // resta sotto il tetto massimo, una fonte che pubblica raramente perdeva
+  // comunque ogni "gara" punto per punto contro chi pubblica spesso.
+  // A differenza del tetto (§MAX_PER_SOURCE_SECTION), può finire sia in
+  // secondaria che in breve: con più di 3 fonti distinte, la sola secondaria
+  // non basterebbe a garantirle tutte.
+  if (!diversify) {
+    const sourcesSeen = new Set([hero.sourceId]);
+    for (const a of rest) {
+      if (secondary.length >= 3 && brief.length >= 6) break;
+      if (!freshIds.has(a.id)) continue;
+      if (sourcesSeen.has(a.sourceId)) continue;
+      if (!placeGuaranteed(a)) continue;
+      sourcesSeen.add(a.sourceId);
+    }
+  }
+
   // Secondo giro: riempie gli slot rimasti per punteggio, rispettando il
   // tetto per fonte (sempre, quando applicabile) e per sezione (solo Prima
   // Pagina — dentro una singola sezione tematica è normale che più articoli
@@ -217,8 +251,8 @@ function bucketArticles(sorted, { diversify = false } = {}) {
     sectionCounts.set(a.section, (sectionCounts.get(a.section) || 0) + 1);
   }
 
-  const briefCandidates = rest.filter((a) => !secondaryIds.has(a.id));
-  const brief = [];
+  const briefIds = new Set(brief.map((a) => a.id));
+  const briefCandidates = rest.filter((a) => !secondaryIds.has(a.id) && !briefIds.has(a.id));
   for (const a of briefCandidates) {
     if (brief.length >= 6) break;
     if (applySourceCap && (sourceCounts.get(a.sourceId) || 0) >= sourceCap) continue;

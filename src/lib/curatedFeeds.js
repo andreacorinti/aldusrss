@@ -72,7 +72,11 @@ export const CURATED_PACKS = [
     label: { it: "Nerd (videogiochi, anime, manga)", en: "Nerd, Italian (games, anime, manga)" },
     feeds: [
       { id: "everyeye", url: "https://www.everyeye.it/rss/notizie.xml", label: "Everyeye.it", weight: 1, sectionHint: "tecnologia" },
+      { id: "ign-it", url: "https://it.ign.com/feed.xml", label: "IGN Italia", weight: 1, sectionHint: "tecnologia" },
+      { id: "gamesurf", url: "https://www.gamesurf.it/feed/", label: "GameSurf", weight: 1, sectionHint: "tecnologia" },
+      { id: "game-experience", url: "https://www.game-experience.it/feed/", label: "Game-eXperience.it", weight: 1, sectionHint: "tecnologia" },
       { id: "animeclick", url: "https://www.animeclick.it/rss", label: "AnimeClick", weight: 1, sectionHint: "cultura" },
+      { id: "mangaforever", url: "https://www.mangaforever.net/feed/", label: "MangaForever", weight: 1, sectionHint: "cultura" },
       // Blog personale, contenuto misto (internet, videogiochi, musica
       // metal...) — niente sectionHint di proposito, come HDblog: forzare
       // tutto in una sezione sarebbe sbagliato tanto quanto lo era per lui.
