@@ -76,7 +76,7 @@ const STRINGS = {
     addButton: "Add",
     cancelButton: "Cancel",
     addFeedButton: "Add an RSS feed",
-    feedUrlPlaceholder: "bbc.com or a direct feed link",
+    feedUrlPlaceholder: "theguardian.com or a direct feed link",
     feedAddHint: "You can paste the site's address: we'll try to find the feed for you.",
     weightLow: "Low",
     weightNormal: "Normal",

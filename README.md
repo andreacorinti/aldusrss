@@ -8,7 +8,7 @@ Un lettore RSS che compone da solo un giornale personale: pesca articoli da tutt
 
 ## Demo
 
-Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia, Gazzetta dello Sport e **BBC News** (per testare l'aggregazione multilingua IT/EN), modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
+Il prototipo carica feed RSS/Atom reali — di default ANSA, Wired Italia e Gazzetta dello Sport, modificabili dalla scheda "Feed" — ne unisce gli articoli e li smista automaticamente in sezioni:
 
 - **Prima Pagina** — vista composta trasversale, i più rilevanti da tutte le fonti/sezioni
 - **Attualità, Mondo, Economia** — impaginazione classica ("quotidiano")
@@ -61,7 +61,7 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [x] Parsing reale dei feed RSS/Atom
 - [x] Aggregazione multi-fonte in un giornale composto a sezioni tematiche, con peso fonte configurabile
 - [x] Libreria di un 4° template editoriale ("rivista", per Cultura/Gossip)
-- [x] Prima fonte in inglese per testare l'aggregazione multilingua (BBC News)
+- [x] Prima fonte in inglese per testare l'aggregazione multilingua (BBC News — poi tolta dai default, vedi sotto: l'aggregazione multilingua resta pronta e testata, la strategia sul pubblico internazionale è da ripensare)
 - [x] Modalità notte (tema scuro per ognuno dei 4 template editoriali, segue il sistema finché non la imposti tu)
 - [x] Interfaccia in italiano/inglese, con rilevamento automatico della lingua (in ottica app nativa, dove verrebbe letta dal sistema)
 - [x] Sezioni riordinabili dall'utente, oltre a mostra/nascondi
@@ -73,7 +73,8 @@ I lettori RSS esistenti (Feedly, Inoreader, Flipboard...) o mostrano tutte le fo
 - [ ] **Prima Pagina monopolizzata da una singola fonte** (bug trovato testando con un feed reale): serve un tetto per fonte in hero+secondaria, oggi assente in `bucketArticles`
 - [ ] Menù hamburger in alto a sinistra senza funzione: dargli uno scopo reale o rimuoverlo
 - [ ] Trascinamento sezioni poco fluido su movimenti veloci: serve un'animazione vera (tecnica FLIP) invece dello snap discreto attuale
-- [ ] Riconsiderare BBC News come fonte di default — ripensare con calma l'approccio al pubblico internazionale
+- [x] BBC News tolta dalle fonti di default (solo italiane per ora)
+- [ ] Strategia per un pubblico internazionale (quali lingue, quali fonti EN) — da ripensare con calma, non di corsa
 - [ ] Lettura offline su Android (cache articoli, già presente per il fallback web, da estendere)
 - [ ] Icona e splash screen dedicati (oggi quelli di default di Capacitor)
 - [ ] APK firmato e distribuito via GitHub Releases / F-Droid

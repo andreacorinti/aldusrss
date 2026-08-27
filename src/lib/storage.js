@@ -5,14 +5,14 @@ const SECTION_ORDER_KEY = "aldusrss.sectionOrder";
 const DARK_MODE_KEY = "aldusrss.darkMode";
 const LANGUAGE_KEY = "aldusrss.language";
 
+// Solo fonti italiane per ora: la strategia per un pubblico internazionale
+// (quali lingue, quali fonti EN) resta da ripensare con calma — vedi issue #9.
+// L'aggregazione multilingua (assignSection con keyword IT+EN, selettore
+// lingua interfaccia) resta comunque pronta per quando si deciderà.
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
   { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1 },
   { id: "gazzetta", url: "https://www.gazzetta.it/rss/home.xml", enabled: true, weight: 1 },
-  // Fonte in inglese di test, per verificare l'aggregazione multilingua: il
-  // classico feed pubblico di AP (apnews.com/apf-topnews) non risponde più
-  // (redirect morto), BBC News è affidabile e porta categorie utilizzabili.
-  { id: "bbc", url: "https://feeds.bbci.co.uk/news/rss.xml", enabled: true, weight: 1 },
 ];
 
 export function loadFeedList() {
