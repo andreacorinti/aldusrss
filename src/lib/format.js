@@ -19,15 +19,24 @@ export function relativeTime(dateStr, lang = "it") {
   return d.toLocaleDateString(isEn ? "en-GB" : "it-IT", { day: "numeric", month: "short" });
 }
 
-export function hashAccentColor(seed) {
+function hashString(str) {
   let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) | 0;
   }
-  const hue = Math.abs(hash) % 360;
+  return Math.abs(hash);
+}
+
+export function hashAccentColor(seed) {
+  const hue = hashString(seed) % 360;
   return `hsl(${hue}, 45%, 34%)`;
 }
 
+// Il seed è spesso l'id/guid dell'articolo, che per alcuni feed (es. ANSA) è
+// l'URL completo dell'articolo: passato così com'è a picsum.photos produce un
+// seed enorme e "strano" che il servizio non gestisce bene (risposta non
+// valida, bloccata dal browser come ORB). Riducendolo a un breve hash
+// numerico prima di usarlo evita il problema qualunque sia l'id in ingresso.
 export function placeholderImage(seed, w, h) {
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`;
+  return `https://picsum.photos/seed/${hashString(seed)}/${w}/${h}`;
 }
