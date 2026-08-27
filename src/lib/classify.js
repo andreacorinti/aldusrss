@@ -83,16 +83,17 @@ function isFresh(article) {
 }
 
 // `diversify` limita quante ne può piazzare una singola fonte: senza, una
-// fonte molto prolifica (tante uscite, quasi sempre classificate nella
-// sezione di default perché non porta categorie — è il caso di ANSA) può
-// monopolizzare non solo hero+secondaria ma perfino "in breve", rendendo
-// Prima Pagina indistinguibile dalla sezione generalista (visto e verificato:
-// stesso hero, stessi 6 "in breve"). Il tetto è più permissivo in "in breve"
-// (un riepilogo tollera un po' più di ripetizione) che in hero+secondaria
-// (dove una singola fonte non dovrebbe mai occupare la vetrina). Ha senso
-// solo per Prima Pagina: dentro una singola sezione tematica è normale —
-// anzi atteso — che più articoli della stessa fonte compaiano insieme.
-const BRIEF_MAX_PER_SOURCE = 2;
+// fonte molto prolifica può monopolizzare non solo hero+secondaria ma
+// perfino "in breve", rendendo Prima Pagina indistinguibile dalla sezione
+// generalista di quella fonte (visto e verificato con più fonti diverse: ANSA
+// quando non porta categorie, poi Sky Sport che pubblica più volte ogni 10
+// minuti). Un tetto di 1 anche per "in breve" (prima erano 2) tiene Prima
+// Pagina più rappresentativa dell'insieme delle fonti invece che dominata
+// da chi semplicemente pubblica più spesso — con più fonti di default che in
+// passato, 2 su 6 voci di un riepilogo di 6 pesava troppo. Ha senso solo per
+// Prima Pagina: dentro una singola sezione tematica è normale — anzi atteso
+// — che più articoli della stessa fonte compaiano insieme.
+const BRIEF_MAX_PER_SOURCE = 1;
 
 function bucketArticles(sorted, { diversify = false } = {}) {
   if (sorted.length === 0) return { hero: null, secondary: [], brief: [], stale: false };

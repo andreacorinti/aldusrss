@@ -31,7 +31,13 @@ const LANGUAGE_KEY = "aldusrss.language";
 export const DEFAULT_FEEDS = [
   { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
   { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1 },
-  { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 1, sectionHint: "sport" },
+  // Peso ridotto di default: pubblica molto più spesso delle altre fonti
+  // (anche più volte ogni 10 minuti), quindi in un ranking a sola recency
+  // vince quasi sempre il turno anche con notizie sportive minori (es. le
+  // maglie della prossima stagione), monopolizzando hero e "in breve" di
+  // Prima Pagina a scapito di notizie generaliste più rilevanti ma meno
+  // frequenti. Il peso resta modificabile dall'utente in "Feed".
+  { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 0.5, sectionHint: "sport" },
   { id: "ansa-economia", url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", enabled: true, weight: 1, sectionHint: "economia" },
   { id: "ansa-cultura", url: "https://www.ansa.it/sito/notizie/cultura/cultura_rss.xml", enabled: true, weight: 1, sectionHint: "cultura" },
   { id: "hdblog", url: "https://www.hdblog.it/rss/", enabled: true, weight: 1 },

@@ -310,11 +310,22 @@ function PullToRefresh({ onRefresh, refreshing, chrome, accent, lang, children }
   // listener nativo `touchmove` esplicitamente non passivo: solo così
   // preventDefault() sopprime davvero il gesto di scroll nativo per la
   // durata del pull.
+  //
+  // `trackingRef` da solo non basta come condizione: si attiva su qualunque
+  // tocco che inizia a scrollTop 0, incluso un normale scroll verso il basso
+  // (dito che scorre verso l'alto) fatto partendo dalla cima della pagina —
+  // bloccarlo sempre rompeva lo scroll ogni volta che si iniziava a toccare
+  // dall'inizio del contenuto (bug reale trovato testando su dispositivo).
+  // Va soppresso solo il vero trascinamento verso il basso: calcolato qui
+  // in autonomia dalle coordinate touch, senza dipendere dall'ordine di
+  // arrivo rispetto a onPointerMove.
   useEffect(() => {
     const el = scrollElRef.current;
     if (!el) return;
     const onTouchMove = (e) => {
-      if (trackingRef.current) e.preventDefault();
+      if (!trackingRef.current) return;
+      const touch = e.touches[0];
+      if (touch && touch.clientY > startYRef.current) e.preventDefault();
     };
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     return () => el.removeEventListener("touchmove", onTouchMove);
