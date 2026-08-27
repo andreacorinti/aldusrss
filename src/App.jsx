@@ -789,7 +789,7 @@ export default function App() {
   const currentView = useMemo(() => {
     const isFront = activeSection === FRONT_PAGE_ID;
     const articles = isFront ? allArticles : allArticles.filter((a) => a.section === activeSection);
-    const composed = composeArticles(articles, sourceWeights);
+    const composed = composeArticles(articles, sourceWeights, { diversify: isFront });
     const sectionMeta = buildSectionMeta(activeSection);
     const template = resolveTemplate(TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
     return {

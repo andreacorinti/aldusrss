@@ -39,20 +39,36 @@ export function scoreArticle(article, sourceWeight = 1) {
   return recency * sourceWeight;
 }
 
-function bucketArticles(sorted) {
+// `diversify` limita hero+secondaria a un articolo per fonte: senza, una
+// fonte con contenuti molto recenti (il ranking premia fortemente la
+// recency) può monopolizzare l'intera Prima Pagina, lasciando alle altre
+// fonti solo "in breve". Ha senso solo per Prima Pagina: dentro una singola
+// sezione tematica è normale — anzi atteso — che più articoli della stessa
+// fonte compaiano insieme.
+function bucketArticles(sorted, { diversify = false } = {}) {
   if (sorted.length === 0) return { hero: null, secondary: [], brief: [] };
   const withImage = sorted.filter((a) => a.image);
   const hero = withImage[0] || sorted[0];
   const rest = sorted.filter((a) => a.id !== hero.id);
-  const secondary = rest.filter((a) => a.image).slice(0, 3);
+
+  const usedSources = new Set([hero.sourceId]);
+  const secondary = [];
+  for (const a of rest) {
+    if (secondary.length >= 3) break;
+    if (!a.image) continue;
+    if (diversify && usedSources.has(a.sourceId)) continue;
+    secondary.push(a);
+    usedSources.add(a.sourceId);
+  }
+
   const secondaryIds = new Set(secondary.map((a) => a.id));
   const brief = rest.filter((a) => !secondaryIds.has(a.id)).slice(0, 6);
   return { hero, secondary, brief };
 }
 
-export function composeArticles(articles, sourceWeights = {}) {
+export function composeArticles(articles, sourceWeights = {}, options = {}) {
   const sorted = [...articles].sort(
     (a, b) => scoreArticle(b, sourceWeights[b.sourceId] ?? 1) - scoreArticle(a, sourceWeights[a.sourceId] ?? 1)
   );
-  return bucketArticles(sorted);
+  return bucketArticles(sorted, options);
 }
