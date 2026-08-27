@@ -35,29 +35,34 @@ const LANGUAGE_KEY = "aldusrss.language";
 // quindi sbagliata in quel caso) — risultato: vinceva l'hero al posto di
 // vera cronaca. DDay.it, verificata a tema tech omogeneo, la sostituisce
 // con un hint sicuro.
+// `label`: nome pulito da mostrare (kicker, elenco Feed) al posto del
+// <title> dichiarato dal feed stesso — spesso più verboso di quanto serva
+// in UI (es. DDay.it si dichiara "DDay.it, news, articoli, guide, gallery
+// e video", ANSA Economia "RSS di Economia - ANSA.it"). Preferito a
+// `feedMeta.title` quando presente, vedi App.jsx.
 export const DEFAULT_FEEDS = [
-  { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1 },
-  { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1 },
+  { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", enabled: true, weight: 1, label: "ANSA" },
+  { id: "wired", url: "https://www.wired.it/feed/rss", enabled: true, weight: 1, label: "Wired Italia" },
   // Peso ridotto di default: pubblica molto più spesso delle altre fonti
   // (anche più volte ogni 10 minuti), quindi in un ranking a sola recency
   // vince quasi sempre il turno anche con notizie sportive minori (es. le
   // maglie della prossima stagione), monopolizzando hero e "in breve" di
   // Prima Pagina a scapito di notizie generaliste più rilevanti ma meno
   // frequenti. Il peso resta modificabile dall'utente in "Feed".
-  { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 0.5, sectionHint: "sport" },
-  { id: "ansa-economia", url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", enabled: true, weight: 1, sectionHint: "economia" },
-  { id: "ansa-cultura", url: "https://www.ansa.it/sito/notizie/cultura/cultura_rss.xml", enabled: true, weight: 1, sectionHint: "cultura" },
-  { id: "dday", url: "https://www.dday.it/rss", enabled: true, weight: 1, sectionHint: "tecnologia" },
-  { id: "sole24ore-economia", url: "https://www.ilsole24ore.com/rss/economia.xml", enabled: true, weight: 1, sectionHint: "economia" },
+  { id: "sky-sport", url: "https://sport.sky.it/rss/sport.xml", enabled: true, weight: 0.5, sectionHint: "sport", label: "Sky Sport" },
+  { id: "ansa-economia", url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", enabled: true, weight: 1, sectionHint: "economia", label: "ANSA Economia" },
+  { id: "ansa-cultura", url: "https://www.ansa.it/sito/notizie/cultura/cultura_rss.xml", enabled: true, weight: 1, sectionHint: "cultura", label: "ANSA Cultura" },
+  { id: "dday", url: "https://www.dday.it/rss", enabled: true, weight: 1, sectionHint: "tecnologia", label: "DDay.it" },
+  { id: "sole24ore-economia", url: "https://www.ilsole24ore.com/rss/economia.xml", enabled: true, weight: 1, sectionHint: "economia", label: "Il Sole 24 Ore" },
   // Categorie native ricche e affidabili (Cronaca, Borsa italiana, Cinema e
   // serie tv...): quasi mai deve ripiegare sul titolo, si classifica bene da
   // sola senza hint.
-  { id: "rainews", url: "https://www.rainews.it/rss/tutti", enabled: true, weight: 1 },
+  { id: "rainews", url: "https://www.rainews.it/rss/tutti", enabled: true, weight: 1, label: "RaiNews" },
   // Stesso editore e stesso pattern di pubblicazione di Sky Sport (più volte
   // ogni 10 minuti, quasi mai categorie sull'articolo): peso ridotto di
   // default per lo stesso motivo, prima ancora di vederlo monopolizzare
   // Attualità come già successo con Sky Sport in Prima Pagina.
-  { id: "sky-tg24", url: "https://tg24.sky.it/rss/tg24_all.xml", enabled: true, weight: 0.5 },
+  { id: "sky-tg24", url: "https://tg24.sky.it/rss/tg24_all.xml", enabled: true, weight: 0.5, label: "Sky TG24" },
 ];
 
 export function loadFeedList() {

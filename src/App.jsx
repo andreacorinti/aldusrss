@@ -510,7 +510,7 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
       <div className="space-y-2.5">
         {feedList.map((f) => {
           const s = sources[f.id];
-          const label = s?.feedMeta?.title || f.url;
+          const label = f.label || s?.feedMeta?.title || f.url;
           return (
             <div key={f.id} className="flex items-center justify-between p-3 rounded-lg gap-2" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
               <div className="flex items-center gap-3 min-w-0">
@@ -864,6 +864,7 @@ export default function App() {
       enabled: true,
       weight: cf.weight ?? 1,
       ...(cf.sectionHint ? { sectionHint: cf.sectionHint } : {}),
+      ...(cf.label ? { label: cf.label } : {}),
     }));
     setFeedList((prev) => {
       const next = [...prev, ...newFeeds];
@@ -981,7 +982,7 @@ export default function App() {
       if (!feed.enabled) continue;
       const entry = sources[feed.id];
       if (!hasArticles(entry)) continue;
-      const sourceName = entry.feedMeta?.title || feed.url;
+      const sourceName = feed.label || entry.feedMeta?.title || feed.url;
       for (const a of entry.articles || []) {
         list.push({ ...a, sourceId: feed.id, sourceName, section: a.section || DEFAULT_SECTION_ID });
       }
