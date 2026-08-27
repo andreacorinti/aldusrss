@@ -171,6 +171,11 @@ function FrontPage({ view, lang, onOpenArticle }) {
   }
   return (
     <div className="px-5 pb-6">
+      {view.stale && (
+        <p className="mb-3 text-[11px] flex items-center gap-1.5" style={{ color: view.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
+          <AlertTriangle size={12} /> {t(lang, "noFreshArticles")}
+        </p>
+      )}
       {/* Hero */}
       <button className="block w-full text-left" onClick={onOpenArticle}>
         <img src={view.hero.image} alt="" className="w-full aspect-[4/3] object-cover" />
@@ -843,6 +848,7 @@ export default function App() {
       hero: composed.hero ? mapArticle(composed.hero, [900, 650], lang) : null,
       secondary: composed.secondary.map((a) => mapArticle(a, [500, 400], lang)),
       brief: composed.brief.map((a) => ({ title: a.title, tag: a.sourceName || "", link: a.link })),
+      stale: composed.stale,
     };
   }, [activeSection, allArticles, sourceWeights, darkMode, lang]);
 

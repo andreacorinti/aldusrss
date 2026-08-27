@@ -39,6 +39,23 @@ export function scoreArticle(article, sourceWeight = 1) {
   return recency * sourceWeight;
 }
 
+// Il decadimento esponenziale da solo ordina ma non scarta mai: se un feed
+// non pubblica articoli con immagine da giorni, un pezzo vecchio di mesi può
+// comunque finire in hero solo perché è l'unico "con immagine" disponibile in
+// quel momento. La finestra di freschezza pone un limite: entro qualche
+// giorno un articolo importante (peso fonte alto, o semplicemente il più
+// recente disponibile) resta in cima grazie al punteggio; oltre, viene escluso
+// da hero/secondaria — a meno che davvero non ci sia nulla di più fresco,
+// nel qual caso si ripiega sul più recente disponibile piuttosto che
+// mostrare una sezione vuota (con un avviso, vedi App.jsx).
+const FRESH_WINDOW_HOURS = 5 * 24;
+
+function isFresh(article) {
+  const t = Date.parse(article.pubDate);
+  if (Number.isNaN(t)) return false;
+  return (Date.now() - t) / 3600000 <= FRESH_WINDOW_HOURS;
+}
+
 // `diversify` limita hero+secondaria a un articolo per fonte: senza, una
 // fonte con contenuti molto recenti (il ranking premia fortemente la
 // recency) può monopolizzare l'intera Prima Pagina, lasciando alle altre
@@ -46,10 +63,15 @@ export function scoreArticle(article, sourceWeight = 1) {
 // sezione tematica è normale — anzi atteso — che più articoli della stessa
 // fonte compaiano insieme.
 function bucketArticles(sorted, { diversify = false } = {}) {
-  if (sorted.length === 0) return { hero: null, secondary: [], brief: [] };
-  const withImage = sorted.filter((a) => a.image);
-  const hero = withImage[0] || sorted[0];
-  const rest = sorted.filter((a) => a.id !== hero.id);
+  if (sorted.length === 0) return { hero: null, secondary: [], brief: [], stale: false };
+
+  const fresh = sorted.filter(isFresh);
+  const pool = fresh.length > 0 ? fresh : sorted;
+  const stale = fresh.length === 0;
+
+  const withImage = pool.filter((a) => a.image);
+  const hero = withImage[0] || pool[0];
+  const rest = pool.filter((a) => a.id !== hero.id);
 
   const usedSources = new Set([hero.sourceId]);
   const secondary = [];
@@ -63,7 +85,7 @@ function bucketArticles(sorted, { diversify = false } = {}) {
 
   const secondaryIds = new Set(secondary.map((a) => a.id));
   const brief = rest.filter((a) => !secondaryIds.has(a.id)).slice(0, 6);
-  return { hero, secondary, brief };
+  return { hero, secondary, brief, stale };
 }
 
 export function composeArticles(articles, sourceWeights = {}, options = {}) {
