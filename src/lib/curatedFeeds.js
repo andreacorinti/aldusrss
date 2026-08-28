@@ -72,6 +72,15 @@ export const CURATED_PACKS = [
       // solo non basta, va aggiunto così. Il feed Feedburner invece non è
       // protetto e risponde regolarmente (verificato con curl, agosto 2026).
       { id: "ekathimerini", url: "https://feeds.feedburner.com/ekathimerini/sKip", label: "Ekathimerini", weight: 1 },
+      // Le prime quattro fonti EN erano tutte generaliste (finiscono quasi
+      // tutte in Attualità): queste aggiungono varietà tematica invece di
+      // impilarsi sulla stessa sezione — verificate via curl (raggiungibili
+      // sia dirette sia attraverso il proxy CORS, senza redirect che rompe il
+      // CORS come successo con Everyeye/ANN) e con pubDate recente, agosto 2026.
+      { id: "bbc-sport", url: "https://feeds.bbci.co.uk/sport/rss.xml", label: "BBC Sport", weight: 1, sectionHint: "sport" },
+      { id: "bbc-business", url: "https://feeds.bbci.co.uk/news/business/rss.xml", label: "BBC Business", weight: 1, sectionHint: "economia" },
+      { id: "bbc-technology", url: "https://feeds.bbci.co.uk/news/technology/rss.xml", label: "BBC Technology", weight: 1, sectionHint: "tecnologia" },
+      { id: "the-verge", url: "https://www.theverge.com/rss/index.xml", label: "The Verge", weight: 1, sectionHint: "tecnologia" },
     ],
   },
   {
