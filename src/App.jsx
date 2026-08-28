@@ -47,9 +47,13 @@ const IS_NATIVE = Capacitor.isNativePlatform();
 // vera e ridimensionabile, non su un telefono: la stessa cornice-telefono
 // del browser di sviluppo ci starebbe "dentro" la finestra come un secondo
 // telefono, sprecando quasi tutto lo spazio orizzontale (segnalato
-// dall'utente). Electron aggiunge sempre "Electron/x.y.z" allo user agent
-// del proprio renderer di default — nessun'altra configurazione serve.
-const IS_ELECTRON = typeof navigator !== "undefined" && /Electron\//.test(navigator.userAgent);
+// dall'utente). Rilevata da un flag esposto da electron/preload.cjs, non
+// dallo user agent: "Electron/x.y.z" compare in qualunque webview ospitato
+// da un programma basato su Electron (es. il browser integrato di VS Code),
+// non solo nella nostra build — con lo sniffing, aprire "npm run dev" dentro
+// un editor del genere mostrava per errore il layout desktop invece della
+// cornice-telefono usata per testare la UI mobile (segnalato dall'utente).
+const IS_ELECTRON = typeof window !== "undefined" && window.__ALDUSRSS_DESKTOP__ === true;
 
 // Condizione comune per "niente cornice-telefono, occupa la finestra/lo
 // schermo intero": vera sia su Android/iOS reali sia dentro Electron.
@@ -237,6 +241,68 @@ function Kicker({ text, accent }) {
     >
       {text}
     </span>
+  );
+}
+
+// Riga di pill orizzontale scrollabile: su schermi stretti (Android reale) le
+// ultime sezioni restano fuori dai bordi senza alcun indizio visivo che ce ne
+// sono altre da scorrere (segnalato dall'utente: sembra che la lista sia
+// "tagliata"/incompleta). Due sfumature ai bordi, mostrate solo quando c'è
+// davvero altro contenuto in quella direzione, comunicano lo scroll possibile.
+function SectionTabs({ sectionTabs, activeSection, onSelect, view, paperColor }) {
+  const scrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateFades = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateFades();
+    window.addEventListener("resize", updateFades);
+    return () => window.removeEventListener("resize", updateFades);
+  }, [updateFades, sectionTabs]);
+
+  return (
+    <div className="relative">
+      <div
+        ref={scrollRef}
+        onScroll={updateFades}
+        className="px-5 flex gap-2 pb-3 overflow-x-auto"
+      >
+        {sectionTabs.map((st) => (
+          <button
+            key={st.id}
+            onClick={() => onSelect(st.id)}
+            className="px-2.5 py-1 rounded-full text-[10.5px] font-semibold uppercase tracking-wide transition-colors shrink-0"
+            style={{
+              backgroundColor: activeSection === st.id ? st.accent : "transparent",
+              color: activeSection === st.id ? "#fff" : view.ink,
+              opacity: activeSection === st.id ? 1 : 0.5,
+              border: `1px solid ${activeSection === st.id ? st.accent : `${view.ink}33`}`,
+            }}
+          >
+            {st.label}
+          </button>
+        ))}
+      </div>
+      {canScrollLeft && (
+        <div
+          className="pointer-events-none absolute left-0 top-0 bottom-3 w-6"
+          style={{ background: `linear-gradient(to right, ${paperColor}, transparent)` }}
+        />
+      )}
+      {canScrollRight && (
+        <div
+          className="pointer-events-none absolute right-0 top-0 bottom-3 w-6"
+          style={{ background: `linear-gradient(to left, ${paperColor}, transparent)` }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -1252,23 +1318,13 @@ export default function App() {
         {tab === "front" && anyReady && !article && (
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden @3xl:mx-auto @3xl:w-full @3xl:max-w-[1100px]">
             <Masthead view={currentView} lang={lang} />
-            <div className="px-5 flex gap-2 pb-3 overflow-x-auto">
-              {sectionTabs.map((st) => (
-                <button
-                  key={st.id}
-                  onClick={() => { setActiveSection(st.id); setArticle(false); }}
-                  className="px-2.5 py-1 rounded-full text-[10.5px] font-semibold uppercase tracking-wide transition-colors shrink-0"
-                  style={{
-                    backgroundColor: activeSection === st.id ? st.accent : "transparent",
-                    color: activeSection === st.id ? "#fff" : currentView.ink,
-                    opacity: activeSection === st.id ? 1 : 0.5,
-                    border: `1px solid ${activeSection === st.id ? st.accent : `${currentView.ink}33`}`,
-                  }}
-                >
-                  {st.label}
-                </button>
-              ))}
-            </div>
+            <SectionTabs
+              sectionTabs={sectionTabs}
+              activeSection={activeSection}
+              onSelect={(id) => { setActiveSection(id); setArticle(false); }}
+              view={currentView}
+              paperColor={paperColor}
+            />
             <PullToRefresh
               onRefresh={refreshAllFeeds}
               refreshing={isRefreshing}

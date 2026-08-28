@@ -34,17 +34,17 @@ function serveStatic(rootDir) {
 
 async function createWindow() {
   const port = await serveStatic(path.join(__dirname, "..", "dist"));
-  // Finestra desktop orizzontale ("da browser"): l'app rileva Electron
-  // dallo user agent (vedi IS_ELECTRON in App.jsx) e passa a un layout a
-  // colonne pensato per questa larghezza invece della cornice-telefono
-  // verticale usata nella demo browser/Android.
+  // Finestra desktop orizzontale ("da browser"): l'app rileva la build
+  // desktop vera dal flag esposto da preload.cjs (vedi IS_ELECTRON in
+  // App.jsx) e passa a un layout a colonne pensato per questa larghezza
+  // invece della cornice-telefono verticale usata nella demo browser/Android.
   const win = new BrowserWindow({
     width: 1180,
     height: 800,
     minWidth: 480,
     minHeight: 600,
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, sandbox: true },
+    webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, "preload.cjs") },
   });
   win.loadURL(`http://127.0.0.1:${port}`);
 }
