@@ -46,10 +46,39 @@ async function fetchWithTimeout(url) {
   }
 }
 
+// `res.text()` decodifica sempre come UTF-8, qualunque sia il charset
+// dichiarato nel Content-Type — comportamento della Fetch API stessa (Body
+// mixin), non un problema di Android/WebView: riprodotto identico anche in
+// Node puro. Fonti italiane più vecchie serie e comuni (es. Il Messaggero)
+// dichiarano ISO-8859-1: una singola lettera accentata (0xE0 = "à") non è
+// un byte UTF-8 valido da solo, quindi diventa "�" ovunque compaia — trovato
+// testando con tutti i default (agosto 2026). Serve leggere i byte grezzi e
+// decodificarli con l'encoding giusto.
+function detectCharset(buffer, contentType) {
+  const headerMatch = /charset=([^;]+)/i.exec(contentType || "");
+  if (headerMatch) return headerMatch[1].trim().replace(/['"]/g, "");
+  // Il charset può anche mancare dall'header e stare solo nel prologo XML
+  // (<?xml ... encoding="...">): quel prologo è sempre puro ASCII, quindi
+  // leggerlo come ASCII/Windows-1252 per estrarne l'encoding dichiarato è
+  // sicuro a prescindere da come sarà codificato il resto del documento.
+  const prologue = new TextDecoder("windows-1252").decode(buffer.slice(0, 200));
+  const xmlMatch = /<\?xml[^>]*encoding=["']([^"']+)["']/i.exec(prologue);
+  return xmlMatch ? xmlMatch[1] : "utf-8";
+}
+
 async function fetchOk(url) {
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.text();
+  const buffer = await res.arrayBuffer();
+  const charset = detectCharset(buffer, res.headers.get("content-type"));
+  try {
+    return new TextDecoder(charset).decode(buffer);
+  } catch {
+    // Charset dichiarato ma sconosciuto al decoder (raro, ma un header
+    // scritto male non deve far fallire l'intero fetch): ripiega su UTF-8,
+    // il default ragionevole per tutto il resto.
+    return new TextDecoder("utf-8").decode(buffer);
+  }
 }
 
 // Fetch generico con fallback sui proxy CORS: usato sia per scaricare l'XML di
@@ -238,7 +267,7 @@ async function tryCommonFeedPaths(pageUrl) {
   }
 }
 
-export async function discoverFeedUrl(pageUrl) {
+async function discoverFromExactUrl(pageUrl) {
   const html = await fetchTextWithFallback(pageUrl);
   const doc = new DOMParser().parseFromString(html, "text/html");
   const links = Array.from(doc.querySelectorAll('link[rel="alternate"]')).filter((el) => {
@@ -254,5 +283,40 @@ export async function discoverFeedUrl(pageUrl) {
       // href malformato, prova il prossimo candidato
     }
   }
-  return await tryCommonFeedPaths(pageUrl);
+  const common = await tryCommonFeedPaths(pageUrl);
+  if (common) return common;
+  throw new Error("nessun feed trovato su questa variante");
+}
+
+// L'utente digita quasi sempre il dominio "nudo" (es. "ansa.it", come da
+// placeholder del form): la stragrande maggioranza dei siti italiani più
+// tradizionali (verificato: ANSA, Repubblica, Il Messaggero, DDay, HDblog,
+// AGI, Wired...) risponde con un redirect 301 verso "www.ansa.it" — e quel
+// redirect, come già successo con Everyeye/ANN nei feed diretti, esce dal
+// proxy CORS (la Location è un URL assoluto verso il sito vero) e fallisce
+// in un vero browser. Nessun trucco JS può "seguire il redirect ma restare
+// dietro al proxy": la Response di un redirect cross-origin è opaca, non se
+// ne può leggere la destinazione. L'unica soluzione pratica è provare anche
+// la variante "www." in parallelo fin da subito, così il redirect non serve
+// proprio — su un dominio che non usa affatto www (raro, ma esiste) quella
+// variante fallisce e basta, senza penalizzare l'altra.
+function withWwwVariant(pageUrl) {
+  try {
+    const u = new URL(pageUrl);
+    if (u.hostname.startsWith("www.")) return [pageUrl];
+    const withWww = new URL(pageUrl);
+    withWww.hostname = `www.${u.hostname}`;
+    return [pageUrl, withWww.href];
+  } catch {
+    return [pageUrl];
+  }
+}
+
+export async function discoverFeedUrl(pageUrl) {
+  const candidates = withWwwVariant(pageUrl);
+  try {
+    return await Promise.any(candidates.map(discoverFromExactUrl));
+  } catch {
+    return null;
+  }
 }
