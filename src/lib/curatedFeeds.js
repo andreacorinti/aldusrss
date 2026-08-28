@@ -36,13 +36,18 @@ export const CURATED_PACKS = [
     id: "tecnologia",
     label: { it: "Tecnologia", en: "Tech" },
     feeds: [
-      { id: "hdblog", url: "https://www.hdblog.it/rss/", label: "HDblog.it", weight: 1 },
+      // hdblog e wired: hint aggiunto (vedi storage.js per il dettaglio su
+      // HDblog) — senza, la maggior parte del loro contenuto genuinamente
+      // tech finiva in Attualità perché usa categorie troppo generiche
+      // (es. "Auto", "Domotica") per matchare le keyword (segnalato
+      // dall'utente).
+      { id: "hdblog", url: "https://www.hdblog.it/rss/", label: "HDblog.it", weight: 1, sectionHint: "tecnologia" },
       { id: "dday", url: "https://www.dday.it/rss", label: "DDay.it", weight: 1, sectionHint: "tecnologia" },
       { id: "punto-informatico", url: "https://www.punto-informatico.it/feed/", label: "Punto Informatico", weight: 1, sectionHint: "tecnologia" },
       // Tolta dai default (feed cronicamente indietro lato editore), resta
       // qui per chi la vuole comunque — la scheda Feed segnala per fonte
       // se non pubblica nulla di recente.
-      { id: "wired", url: "https://www.wired.it/feed/rss", label: "Wired Italia", weight: 1 },
+      { id: "wired", url: "https://www.wired.it/feed/rss", label: "Wired Italia", weight: 1, sectionHint: "tecnologia" },
     ],
   },
   {
@@ -76,22 +81,6 @@ export const CURATED_PACKS = [
       { id: "bbc-business", url: "https://feeds.bbci.co.uk/news/business/rss.xml", label: "BBC Business", weight: 1, sectionHint: "economia" },
       { id: "bbc-technology", url: "https://feeds.bbci.co.uk/news/technology/rss.xml", label: "BBC Technology", weight: 1, sectionHint: "tecnologia" },
       { id: "the-verge", url: "https://www.theverge.com/rss/index.xml", label: "The Verge", weight: 1, sectionHint: "tecnologia" },
-    ],
-  },
-  // Prima lingua oltre IT/EN (issue #7): tutte generaliste, verificate via
-  // curl con pubDate recente, agosto 2026. RTVE e ABC.es scartate: raggiungibili
-  // ma con l'ultimo articolo fermo rispettivamente al 2022 e al 2023 (feed
-  // abbandonati lato editore, stesso problema già visto con Gazzetta/Corriere/
-  // Wired Italia). Le keyword di classificazione per sezione includono ora
-  // anche i termini spagnoli (vedi sections.js), non solo IT+EN.
-  {
-    id: "spagnolo",
-    label: { it: "Fonti in spagnolo", en: "Spanish sources" },
-    feeds: [
-      { id: "el-pais", url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", label: "El País", weight: 1 },
-      { id: "el-mundo", url: "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml", label: "El Mundo", weight: 1 },
-      { id: "la-vanguardia", url: "https://www.lavanguardia.com/rss/home.xml", label: "La Vanguardia", weight: 1 },
-      { id: "bbc-mundo", url: "https://feeds.bbci.co.uk/mundo/rss.xml", label: "BBC Mundo", weight: 1 },
     ],
   },
   {
@@ -142,3 +131,22 @@ export const CURATED_PACKS = [
     ],
   },
 ];
+
+// Pacchetto pronto ma volutamente non offerto in CURATED_PACKS (richiesto
+// dall'utente, agosto 2026): per ora l'app si rivolge solo a chi legge
+// IT/EN, lo spagnolo resta un passo successivo. Le keyword di
+// classificazione ES in sections.js restano comunque attive (non fanno
+// male finché nessuna fonte ES è in circolazione) e i quattro feed sotto
+// sono già verificati funzionanti (vedi commit "Più testate autorevoli nei
+// default, pacchetto Fonti in spagnolo, keyword ES") — quando si deciderà
+// di riaprire, basta rimettere questo oggetto dentro CURATED_PACKS.
+export const SPANISH_PACK_DISABLED = {
+  id: "spagnolo",
+  label: { it: "Fonti in spagnolo", en: "Spanish sources" },
+  feeds: [
+    { id: "el-pais", url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", label: "El País", weight: 1 },
+    { id: "el-mundo", url: "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml", label: "El Mundo", weight: 1 },
+    { id: "la-vanguardia", url: "https://www.lavanguardia.com/rss/home.xml", label: "La Vanguardia", weight: 1 },
+    { id: "bbc-mundo", url: "https://feeds.bbci.co.uk/mundo/rss.xml", label: "BBC Mundo", weight: 1 },
+  ],
+};

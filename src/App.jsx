@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail } from "lucide-react";
-import { fetchTextWithFallback, parseFeed, discoverFeedUrl, runWithConcurrency } from "./lib/rss";
+import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
@@ -59,10 +59,10 @@ const IS_ELECTRON = typeof window !== "undefined" && window.__ALDUSRSS_DESKTOP__
 // schermo intero": vera sia su Android/iOS reali sia dentro Electron.
 const IS_FULL_BLEED = IS_NATIVE || IS_ELECTRON;
 
-// Quante fonti aggiornare in parallelo (vedi runWithConcurrency in rss.js):
-// abbastanza per restare veloci con poche fonti, abbastanza poco da non
-// sovraccaricare il proxy CORS pubblico e gratuito quando le fonti sono
-// molte.
+// Quante fonti aggiornare in parallelo, condiviso da tutta l'app tramite la
+// coda di refresh più sotto (enqueueRefresh): abbastanza per restare veloci
+// con poche fonti, abbastanza poco da non sovraccaricare il proxy CORS
+// pubblico e gratuito quando le fonti sono molte.
 const REFRESH_CONCURRENCY = 3;
 
 const WEIGHT_LEVELS = [
@@ -709,7 +709,7 @@ function ArticleView({ view, lang, onBack }) {
   );
 }
 
-function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, onWeightChange, chrome, lang }) {
+function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, onRemovePack, onWeightChange, chrome, lang }) {
   const [adding, setAdding] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [addError, setAddError] = useState("");
@@ -861,15 +861,35 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
                           {pack.feeds.map((f) => f.label).join(" · ")}
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleAddPack(pack)}
-                        disabled={isAdding || newCount === 0}
-                        className="shrink-0 px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5"
-                        style={{ backgroundColor: chrome.ink, color: chrome.screenBg, opacity: isAdding || newCount === 0 ? 0.45 : 1 }}
-                      >
-                        {isAdding && <Loader2 size={12} className="animate-spin" />}
-                        {newCount === 0 ? t(lang, "packAllAdded") : t(lang, "packAddAll")}
-                      </button>
+                      {newCount === 0 ? (
+                        // Prima era un "Già aggiunte" grigio e inerte: per
+                        // togliere un intero pacchetto bisognava rimuovere
+                        // ogni fonte una per una dalla X della riga
+                        // (segnalato dall'utente come scomodo per i
+                        // pacchetti più lunghi, es. Nerd con 6 fonti).
+                        <button
+                          onClick={() => {
+                            const label = pack.label[lang] || pack.label.it;
+                            if (window.confirm(`${t(lang, "confirmRemoveFeed")} "${label}"?`)) {
+                              onRemovePack(pack.feeds.map((f) => f.url));
+                            }
+                          }}
+                          className="shrink-0 px-3 py-1.5 rounded-md text-[11.5px] font-medium border"
+                          style={{ borderColor: chrome.danger, color: chrome.danger }}
+                        >
+                          {t(lang, "packRemoveAll")}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleAddPack(pack)}
+                          disabled={isAdding}
+                          className="shrink-0 px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5"
+                          style={{ backgroundColor: chrome.ink, color: chrome.screenBg, opacity: isAdding ? 0.45 : 1 }}
+                        >
+                          {isAdding && <Loader2 size={12} className="animate-spin" />}
+                          {t(lang, "packAddAll")}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1090,14 +1110,56 @@ export default function App() {
     }
   }, []);
 
+  // Coda di refresh CONDIVISA fra tutti i punti che possono far partire un
+  // fetch (caricamento iniziale, pull-to-refresh, aggiunta di un pacchetto):
+  // prima ognuno avviava il proprio runWithConcurrency(..., REFRESH_CONCURRENCY,
+  // ...) indipendente, quindi il tetto di concorrenza valeva solo ALL'INTERNO
+  // di ogni singola chiamata — aggiungere più pacchetti uno via l'altro (o
+  // aggiungerne uno mentre il caricamento iniziale era ancora in corso)
+  // sommava più "batch da 3" in parallelo, superando di fatto il tetto e
+  // sovraccaricando l'unico proxy CORS rimasto (segnalato dall'utente:
+  // qualche fonte irraggiungibile aggiungendo più pacchetti in blocco). Ora
+  // un'unica coda e un unico pool di worker, dimensionato una volta sola:
+  // qualunque cosa la alimenti, non più di REFRESH_CONCURRENCY fetch reali
+  // sono mai in volo contemporaneamente in tutta l'app.
+  const refreshQueueRef = useRef([]);
+  const activeRefreshWorkersRef = useRef(0);
+
+  const pumpRefreshWorkers = useCallback(() => {
+    while (activeRefreshWorkersRef.current < REFRESH_CONCURRENCY && refreshQueueRef.current.length > 0) {
+      activeRefreshWorkersRef.current++;
+      (async () => {
+        let job;
+        while ((job = refreshQueueRef.current.shift())) {
+          await job();
+        }
+        activeRefreshWorkersRef.current--;
+      })();
+    }
+  }, []);
+
+  const enqueueRefresh = useCallback((feeds) => {
+    if (feeds.length === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let remaining = feeds.length;
+      for (const feed of feeds) {
+        refreshQueueRef.current.push(async () => {
+          await refreshSource(feed);
+          if (--remaining === 0) resolve();
+        });
+      }
+      pumpRefreshWorkers();
+    });
+  }, [refreshSource, pumpRefreshWorkers]);
+
   useEffect(() => {
-    runWithConcurrency(feedList, REFRESH_CONCURRENCY, refreshSource);
+    enqueueRefresh(feedList);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshAllFeeds = useCallback(() => {
-    runWithConcurrency(feedList, REFRESH_CONCURRENCY, refreshSource);
-  }, [feedList, refreshSource]);
+    enqueueRefresh(feedList);
+  }, [feedList, enqueueRefresh]);
 
   // Importa in blocco un pacchetto di fonti curate (curatedFeeds.js): gli
   // URL sono già noti e verificati, quindi non serve l'autodiscovery usata
@@ -1119,8 +1181,8 @@ export default function App() {
       saveFeedList(next);
       return next;
     });
-    await runWithConcurrency(newFeeds, REFRESH_CONCURRENCY, refreshSource);
-  }, [feedList, refreshSource]);
+    await enqueueRefresh(newFeeds);
+  }, [feedList, enqueueRefresh]);
 
   // Aggiunge una fonte solo se si riesce davvero a scaricarla e a leggerla
   // come feed — mai "nel dubbio, aggiungiamola comunque e vediamo se
@@ -1173,6 +1235,28 @@ export default function App() {
       return next;
     });
   }, []);
+
+  // Rimuove in blocco tutte le fonti di un pacchetto curato (identificate per
+  // URL, come addFeedsBulk le aggiunge): un solo aggiornamento di stato
+  // invece di N chiamate a removeFeed, così anche i pacchetti più lunghi
+  // (es. Nerd, 6 fonti) si tolgono con un click invece che uno alla volta
+  // dalla X di ogni riga (segnalato dall'utente).
+  const removeFeedsBulk = useCallback((urls) => {
+    const urlSet = new Set(urls);
+    const idsToRemove = feedList.filter((f) => urlSet.has(f.url)).map((f) => f.id);
+    if (idsToRemove.length === 0) return;
+    setFeedList((prev) => {
+      const next = prev.filter((f) => !urlSet.has(f.url));
+      saveFeedList(next);
+      return next;
+    });
+    for (const id of idsToRemove) removeSourceCache(id);
+    setSources((prev) => {
+      const next = { ...prev };
+      for (const id of idsToRemove) delete next[id];
+      return next;
+    });
+  }, [feedList]);
 
   const toggleFeed = useCallback((id) => {
     setFeedList((prev) => {
@@ -1396,7 +1480,7 @@ export default function App() {
 
         {tab === "feeds" && (
           <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
-            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onAddPack={addFeedsBulk} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
+            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onAddPack={addFeedsBulk} onRemovePack={removeFeedsBulk} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
           </div>
         )}
 

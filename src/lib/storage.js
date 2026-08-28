@@ -6,11 +6,14 @@ const DARK_MODE_KEY = "aldusrss.darkMode";
 const LANGUAGE_KEY = "aldusrss.language";
 
 // Solo fonti italiane nei default: il pubblico principale resta quello
-// italiano (issue #7). Chi vuole fonti in inglese o spagnolo le trova come
-// pacchetti curati opt-in (curatedFeeds.js, "Fonti in inglese"/"Fonti in
-// spagnolo") — l'aggregazione multilingua (assignSection con keyword
-// IT+EN+ES in sections.js) le classifica comunque per sezione come le fonti
-// italiane, non solo in Attualità.
+// italiano (issue #7). Chi vuole fonti in inglese le trova come pacchetto
+// curato opt-in (curatedFeeds.js, "Fonti in inglese") — l'aggregazione
+// multilingua (assignSection con keyword IT+EN+ES in sections.js) le
+// classifica comunque per sezione come le fonti italiane, non solo in
+// Attualità. Un pacchetto "Fonti in spagnolo" pronto esiste già in
+// curatedFeeds.js (SPANISH_PACK_DISABLED) ma non è offerto per ora
+// (richiesto dall'utente): l'app si rivolge solo a chi legge IT/EN finché
+// non si deciderà di aprire anche allo spagnolo.
 // Gazzetta dello Sport sostituita da Sky Sport come fonte sportiva di
 // default: verificato (curl, agosto 2026) che https://www.gazzetta.it/rss/*
 // è di fatto abbandonato lato editore — tutte le varianti provate servono
@@ -27,16 +30,19 @@ const LANGUAGE_KEY = "aldusrss.language";
 // match reale altrove.
 //
 // HDblog.it tolta dai default (resta comunque nel pacchetto curato
-// Tecnologia, vedi curatedFeeds.js, per chi la vuole comunque): nonostante
-// il nome pubblica anche contenuto generalista non tech (es. "Bollette e
-// caro vita"), quindi non può avere un hint — ma questo significa che
-// anche il suo contenuto genuinamente tech senza parola chiave riconoscibile
-// (es. "Grovigli di cavi nei cassetti? Si risolve con la stampa 3D", nessuna
-// categoria) ricadeva in Attualità, sfuggendo così anche allo sconto
-// editoriale di Prima Pagina per Tecnologia (basato sulla sezione assegnata,
-// quindi sbagliata in quel caso) — risultato: vinceva l'hero al posto di
-// vera cronaca. DDay.it, verificata a tema tech omogeneo, la sostituisce
-// con un hint sicuro.
+// Tecnologia, vedi curatedFeeds.js, per chi la vuole comunque). Aveva
+// inizialmente NESSUN hint proprio perché pubblica anche contenuto
+// generalista non tech (es. "Bollette e caro vita") — ma verificato con le
+// categorie reali del feed (agosto 2026, campione di 12 articoli): la
+// maggioranza usa categorie generiche tipo "Amazon"/"Auto"/"Domotica"/
+// "Curiosità" che non matchano nessuna keyword, quindi ricadeva comunque in
+// Attualità anche per contenuto chiaramente tech (gadget, elettronica di
+// consumo) — la sezione Tecnologia finiva per svuotarsi di HDblog quasi del
+// tutto, mentre Attualità si riempiva di notizie di gadget invece che di
+// vera cronaca generalista (segnalato dall'utente). Ora ha comunque
+// l'hint: un'occasionale notizia davvero generalista finita in Tecnologia
+// per errore pesa meno di questo. DDay.it resta comunque a tema più
+// omogeneo, l'hint lì non è mai stato in discussione.
 // `label`: nome pulito da mostrare (kicker, elenco Feed) al posto del
 // <title> dichiarato dal feed stesso — spesso più verboso di quanto serva
 // in UI (es. DDay.it si dichiara "DDay.it, news, articoli, guide, gallery

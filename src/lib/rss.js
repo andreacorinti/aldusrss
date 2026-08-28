@@ -98,25 +98,6 @@ export async function fetchTextWithFallback(url) {
   }
 }
 
-// Esegue `worker` su ogni elemento di `items` con al più `limit` in volo
-// contemporaneamente. Usato per non lanciare tutti i refresh delle fonti in
-// un colpo solo: con molte fonti abilitate, ognuna che fa partire fino a 2
-// richieste in parallelo (diretta + proxy CORS), significa decine di
-// richieste simultanee sullo stesso proxy pubblico gratuito — che sotto
-// carico risponde lento o fallisce, facendo apparire tante fonti come "non
-// raggiungibili" tutte assieme anche se singolarmente funzionano bene
-// (segnalato dall'utente testando con molte fonti assieme).
-export async function runWithConcurrency(items, limit, worker) {
-  const queue = [...items];
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (queue.length > 0) {
-      const item = queue.shift();
-      await worker(item);
-    }
-  });
-  await Promise.all(runners);
-}
-
 function firstTag(el, names) {
   for (const name of names) {
     const found = el.getElementsByTagName(name)[0];
