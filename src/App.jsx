@@ -8,6 +8,7 @@ import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, F
 import { CURATED_PACKS } from "./lib/curatedFeeds";
 import { stripHtml, relativeTime, hashAccentColor } from "./lib/format";
 import { resolveLanguage, t } from "./lib/i18n";
+import { version as APP_VERSION } from "../package.json";
 import {
   loadFeedList,
   saveFeedList,
@@ -1073,6 +1074,9 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
         >
           {t(lang, "creditsLine")}
         </a>
+        <p className="text-[10px] mt-1" style={{ color: chrome.ink, opacity: 0.3, fontFamily: "'Inter', sans-serif" }}>
+          v{APP_VERSION}
+        </p>
       </div>
     </div>
   );
