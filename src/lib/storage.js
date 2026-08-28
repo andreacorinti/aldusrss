@@ -5,10 +5,12 @@ const SECTION_ORDER_KEY = "aldusrss.sectionOrder";
 const DARK_MODE_KEY = "aldusrss.darkMode";
 const LANGUAGE_KEY = "aldusrss.language";
 
-// Solo fonti italiane per ora: la strategia per un pubblico internazionale
-// (quali lingue, quali fonti EN) resta da ripensare con calma — vedi issue #9.
-// L'aggregazione multilingua (assignSection con keyword IT+EN, selettore
-// lingua interfaccia) resta comunque pronta per quando si deciderà.
+// Solo fonti italiane nei default: il pubblico principale resta quello
+// italiano (issue #7). Chi vuole fonti in inglese o spagnolo le trova come
+// pacchetti curati opt-in (curatedFeeds.js, "Fonti in inglese"/"Fonti in
+// spagnolo") — l'aggregazione multilingua (assignSection con keyword
+// IT+EN+ES in sections.js) le classifica comunque per sezione come le fonti
+// italiane, non solo in Attualità.
 // Gazzetta dello Sport sostituita da Sky Sport come fonte sportiva di
 // default: verificato (curl, agosto 2026) che https://www.gazzetta.it/rss/*
 // è di fatto abbandonato lato editore — tutte le varianti provate servono
@@ -68,6 +70,23 @@ export const DEFAULT_FEEDS = [
   // default per lo stesso motivo, prima ancora di vederlo monopolizzare
   // Attualità come già successo con Sky Sport in Prima Pagina.
   { id: "sky-tg24", url: "https://tg24.sky.it/rss/tg24_all.xml", enabled: true, weight: 0.5, label: "Sky TG24" },
+  // Testate generaliste maggiori aggiunte ai default (richiesto
+  // dall'utente): Corriere della Sera esclusa, il suo feed è di fatto morto
+  // lato editore (verificato più volte). Tutte verificate via curl (dirette
+  // e attraverso il proxy CORS, senza redirect che spezza il CORS in
+  // browser come successo con Everyeye/ANN) e con pubDate recente, agosto
+  // 2026. Rimosse dal pacchetto curato "Attualità" (ora ridondante, erano
+  // già queste tre) — vedi curatedFeeds.js.
+  { id: "la-repubblica", url: "https://www.repubblica.it/rss/homepage/rss2.0.xml", enabled: true, weight: 1, label: "La Repubblica" },
+  { id: "il-fatto-quotidiano", url: "https://www.ilfattoquotidiano.it/feed/", enabled: true, weight: 1, label: "Il Fatto Quotidiano" },
+  { id: "il-messaggero", url: "https://www.ilmessaggero.it/rss/home.xml", enabled: true, weight: 1, label: "Il Messaggero" },
+  // Agenzia di stampa (come ANSA): titoli asciutti, cronaca pura, quasi mai
+  // opinione — un buon contrappeso alle testate sopra.
+  { id: "agi", url: "https://www.agi.it/cronaca/rss", enabled: true, weight: 1, label: "AGI" },
+  { id: "open", url: "https://www.open.online/feed/", enabled: true, weight: 1, label: "Open" },
+  // Peso ridotto come Sky Sport/Sky TG24: pubblica più volte ogni 10 minuti
+  // (verificato, stesso motivo di monopolio potenziale su Prima Pagina).
+  { id: "tgcom24", url: "https://www.tgcom24.mediaset.it/rss/", enabled: true, weight: 0.5, label: "TGCOM24" },
 ];
 
 export function loadFeedList() {

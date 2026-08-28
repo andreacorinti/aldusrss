@@ -9,16 +9,11 @@
 // un pacchetto si importa "in blocco" senza altra elaborazione. `label` è
 // bilingue (mostrato secondo la lingua dell'interfaccia) perché alcuni
 // pacchetti non corrispondono a una sezione esistente dell'app.
+// Il pacchetto "Attualità" (ANSA, Il Fatto Quotidiano, La Repubblica) è stato
+// tolto: tutte e tre sono ora tra i default (storage.js), quindi "Aggiungi
+// tutte" non avrebbe più aggiunto nulla — un pulsante finto, non un pacchetto
+// utile.
 export const CURATED_PACKS = [
-  {
-    id: "generalisti",
-    label: { it: "Attualità", en: "News" },
-    feeds: [
-      { id: "ansa", url: "https://www.ansa.it/sito/ansait_rss.xml", label: "ANSA", weight: 1 },
-      { id: "fatto-quotidiano", url: "https://www.ilfattoquotidiano.it/feed/", label: "Il Fatto Quotidiano", weight: 1 },
-      { id: "repubblica", url: "https://www.repubblica.it/rss/homepage/rss2.0.xml", label: "La Repubblica", weight: 1 },
-    ],
-  },
   {
     id: "economia",
     label: { it: "Economia", en: "Business" },
@@ -81,6 +76,22 @@ export const CURATED_PACKS = [
       { id: "bbc-business", url: "https://feeds.bbci.co.uk/news/business/rss.xml", label: "BBC Business", weight: 1, sectionHint: "economia" },
       { id: "bbc-technology", url: "https://feeds.bbci.co.uk/news/technology/rss.xml", label: "BBC Technology", weight: 1, sectionHint: "tecnologia" },
       { id: "the-verge", url: "https://www.theverge.com/rss/index.xml", label: "The Verge", weight: 1, sectionHint: "tecnologia" },
+    ],
+  },
+  // Prima lingua oltre IT/EN (issue #7): tutte generaliste, verificate via
+  // curl con pubDate recente, agosto 2026. RTVE e ABC.es scartate: raggiungibili
+  // ma con l'ultimo articolo fermo rispettivamente al 2022 e al 2023 (feed
+  // abbandonati lato editore, stesso problema già visto con Gazzetta/Corriere/
+  // Wired Italia). Le keyword di classificazione per sezione includono ora
+  // anche i termini spagnoli (vedi sections.js), non solo IT+EN.
+  {
+    id: "spagnolo",
+    label: { it: "Fonti in spagnolo", en: "Spanish sources" },
+    feeds: [
+      { id: "el-pais", url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", label: "El País", weight: 1 },
+      { id: "el-mundo", url: "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml", label: "El Mundo", weight: 1 },
+      { id: "la-vanguardia", url: "https://www.lavanguardia.com/rss/home.xml", label: "La Vanguardia", weight: 1 },
+      { id: "bbc-mundo", url: "https://feeds.bbci.co.uk/mundo/rss.xml", label: "BBC Mundo", weight: 1 },
     ],
   },
   {
