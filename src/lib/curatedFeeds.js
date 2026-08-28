@@ -78,7 +78,13 @@ export const CURATED_PACKS = [
     id: "nerd-it",
     label: { it: "Nerd (videogiochi, anime, manga)", en: "Nerd, Italian (games, anime, manga)" },
     feeds: [
-      { id: "everyeye", url: "https://www.everyeye.it/rss/notizie.xml", label: "Everyeye.it", weight: 1, sectionHint: "tecnologia" },
+      // Il vecchio /rss/notizie.xml ora risponde con un 301 al vero indirizzo
+      // sotto: fetch lo segue automaticamente, ma la risposta finale arriva
+      // dritta da everyeye.it invece che dal proxy CORS (nessun
+      // Access-Control-Allow-Origin) — bloccata dal browser anche se curl la
+      // vede benissimo (segnalato dall'utente: "Failed to fetch" su tutti i
+      // tentativi). Puntare già alla destinazione evita il salto.
+      { id: "everyeye", url: "https://www.everyeye.it/feed/feed_news_rss.asp", label: "Everyeye.it", weight: 1, sectionHint: "tecnologia" },
       { id: "ign-it", url: "https://it.ign.com/feed.xml", label: "IGN Italia", weight: 1, sectionHint: "tecnologia" },
       { id: "gamesurf", url: "https://www.gamesurf.it/feed/", label: "GameSurf", weight: 1, sectionHint: "tecnologia" },
       { id: "animeclick", url: "https://www.animeclick.it/rss", label: "AnimeClick", weight: 1, sectionHint: "cultura" },
@@ -105,7 +111,14 @@ export const CURATED_PACKS = [
       // stessi proxy.
       { id: "ign", url: "https://www.ign.com/rss/articles/feed", label: "IGN", weight: 1, sectionHint: "tecnologia" },
       { id: "eurogamer", url: "https://www.eurogamer.net/feed", label: "Eurogamer", weight: 1, sectionHint: "tecnologia" },
-      { id: "ann", url: "https://www.animenewsnetwork.com/all/rss.xml", label: "Anime News Network", weight: 1, sectionHint: "cultura" },
+      // /all/rss.xml risponde con un 301 a un percorso relativo
+      // (?ann-edition=us): il browser lo risolve contro l'origine del proxy
+      // CORS invece che contro il sito vero, producendo un indirizzo senza
+      // senso (es. proxy.cors.sh/all/rss.xml?ann-edition=us) che il proxy
+      // rifiuta con 400 — fallisce anche se il feed di partenza è raggiungibile
+      // (segnalato dall'utente: "Failed to fetch" su tutti i tentativi).
+      // Puntare già alla destinazione evita il salto.
+      { id: "ann", url: "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us", label: "Anime News Network", weight: 1, sectionHint: "cultura" },
     ],
   },
 ];
