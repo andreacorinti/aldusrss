@@ -31,7 +31,7 @@ Quando sarai pronto per un pubblico più ampio, si passa a Closed/Open testing e
 - Categoria: Notizie e riviste
 - Icona 512×512: `docs/store/ic_play_512.png` (pronta)
 - Immagine in evidenza (feature graphic) 1024×500: `docs/store/feature_graphic_1024x500.png` (pronta)
-- Screenshot telefono (minimo 2, consigliati 4+): da fare — l'emulatore attuale è a bassa risoluzione (320×640), meglio catturarli da un telefono reale o un emulatore a risoluzione più alta quando l'app sarà meno "grezza"
+- Screenshot telefono (minimo 2, consigliati 4+): pronti in `docs/store/screenshots/` (emulatore 1080×1920, v0.4.3) — Prima Pagina, Sport, Tecnologia, Cultura, Feed, Modalità notte. Da rifare quando l'app sarà meno "grezza" o cambierà visibilmente; per ora vanno bene per Internal testing.
 
 ## 5. Firma
 
