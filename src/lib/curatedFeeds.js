@@ -84,6 +84,21 @@ export const CURATED_PACKS = [
     ],
   },
   {
+    id: "cronaca-locale",
+    label: { it: "Cronaca locale (rete QN)", en: "Local news, Italian (QN network)" },
+    feeds: [
+      // Corriere della Sera e Gazzetta dello Sport erano state chieste dai
+      // tester ("cerco Corriere della Sera") ma escluse: entrambe rispondono
+      // 200 ma con pubDate fermo rispettivamente a maggio 2024 e dicembre
+      // 2023 (verificato via curl, agosto 2026) — stesso motivo per cui non
+      // sono nei default. Queste tre della rete QN (stesso editore, Monrif)
+      // invece sono verificate vive con pubDate del giorno stesso.
+      { id: "il-resto-del-carlino", url: "https://www.ilrestodelcarlino.it/rss/homepage.xml", label: "Il Resto del Carlino", weight: 1 },
+      { id: "la-nazione", url: "https://www.lanazione.it/rss/homepage.xml", label: "La Nazione", weight: 1 },
+      { id: "il-giorno", url: "https://www.ilgiorno.it/rss/homepage.xml", label: "Il Giorno", weight: 1 },
+    ],
+  },
+  {
     id: "nerd-it",
     label: { it: "Nerd (videogiochi, anime, manga)", en: "Nerd, Italian (games, anime, manga)" },
     feeds: [

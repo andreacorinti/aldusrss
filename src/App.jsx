@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
-import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail } from "lucide-react";
+import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail, GripVertical } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
 import { CURATED_PACKS } from "./lib/curatedFeeds";
+import { searchPublishers } from "./lib/publisherSearch";
 import { stripHtml, relativeTime, hashAccentColor } from "./lib/format";
 import { resolveLanguage, t } from "./lib/i18n";
 import { version as APP_VERSION } from "../package.json";
@@ -718,6 +719,31 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [addingPackId, setAddingPackId] = useState(null);
 
+  // Ricerca "per nome" tra le testate già conosciute (default + pacchetti
+  // curati): richiesta dai tester per non dover cercare a mano l'indirizzo
+  // di siti come "Il Resto del Carlino" o "Sky Sport". Copre solo le fonti
+  // che l'app conosce già — per tutte le altre resta il flusso normale
+  // (incolla l'indirizzo, autodiscovery). Vedi src/lib/publisherSearch.js.
+  const suggestions = useMemo(() => searchPublishers(urlInput), [urlInput]);
+
+  async function handleSelectSuggestion(entry) {
+    if (feedList.some((f) => f.url === entry.url)) {
+      setAddError(t(lang, "errorDuplicateFeed"));
+      return;
+    }
+    setAddError("");
+    setSubmitting(true);
+    try {
+      await onAdd(entry.url, entry.label);
+      setUrlInput("");
+      setAdding(false);
+    } catch {
+      setAddError(t(lang, "errorNoFeedFound"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleAddPack(pack) {
     setAddingPackId(pack.id);
     await onAddPack(pack.feeds);
@@ -910,6 +936,28 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
               className="w-full text-[13px] px-2.5 py-2 rounded-md outline-none"
               style={{ backgroundColor: chrome.card, color: chrome.ink, border: `1px solid ${chrome.divider}` }}
             />
+            {suggestions.length > 0 && (
+              <div className="mt-1.5 rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.divider}` }}>
+                {suggestions.map((entry, i) => (
+                  <button
+                    key={entry.url}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleSelectSuggestion(entry)}
+                    className="w-full text-left px-2.5 py-2 text-[13px] flex items-center gap-2"
+                    style={{
+                      backgroundColor: chrome.card,
+                      color: chrome.ink,
+                      opacity: submitting ? 0.5 : 1,
+                      borderTop: i === 0 ? "none" : `1px solid ${chrome.divider}`,
+                    }}
+                  >
+                    <Rss size={13} style={{ opacity: 0.5 }} />
+                    {entry.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <p className="mt-1.5 text-[11px]" style={{ color: chrome.ink, opacity: 0.5 }}>{t(lang, "feedAddHint")}</p>
             {addError && <p className="mt-1.5 text-[11.5px]" style={{ color: chrome.danger }}>{addError}</p>}
             <div className="mt-2 flex gap-2">
@@ -946,11 +994,68 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
   );
 }
 
-// Prima c'era un trascinamento vero (Pointer Events), ma sul dispositivo
-// reale è risultato poco maneggevole (mani grandi, telefono piccolo, bersaglio
-// di trascinamento piccolo). Due pulsanti su/giù grandi e ben distanziati sono
-// meno "eleganti" ma molto più affidabili da toccare con precisione.
+function arrayMove(arr, from, to) {
+  const copy = [...arr];
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item);
+  return copy;
+}
+
+// Un primo trascinamento vero (Pointer Events) era stato tentato e poi
+// tolto: sul dispositivo reale risultava poco maneggevole (mani grandi,
+// telefono piccolo, bersaglio di trascinamento piccolo) — restavano solo le
+// frecce su/giù. Questo secondo tentativo tiene le frecce come alternativa
+// sempre presente (chi preferisce toccare due volte invece di trascinare con
+// precisione può continuare a farlo esattamente come prima) e aggiunge il
+// trascinamento tramite una maniglia dedicata e grande (44px), non l'intera
+// riga — così un tocco impreciso non lo attiva per sbaglio. Lo spostamento
+// durante il trascinamento è calcolato sulla distanza reale misurata tra le
+// righe (non un valore fisso in pixel), così si adatta anche a chi tiene un
+// testo di sistema più grande per accessibilità — un dito tremolante che si
+// sposta di pochi pixel non fa scattare uno scambio, serve superare metà
+// della distanza fino alla riga vicina.
 function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection, onReorderSections, chrome, lang }) {
+  const [order, setOrder] = useState(sectionOrder);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const itemRefs = useRef({});
+  const dragRef = useRef(null);
+  const prevRectsRef = useRef({});
+
+  useEffect(() => {
+    if (!draggingId) setOrder(sectionOrder);
+  }, [sectionOrder, draggingId]);
+
+  // FLIP: le righe che cambiano posizione perché ne è stata trascinata
+  // un'altra scivolano al posto nuovo invece di saltarci di colpo.
+  useLayoutEffect(() => {
+    const prev = prevRectsRef.current;
+    for (const id of order) {
+      if (id === draggingId) continue;
+      const el = itemRefs.current[id];
+      if (!el) continue;
+      const prevRect = prev[id];
+      const nextRect = el.getBoundingClientRect();
+      if (prevRect) {
+        const dy = prevRect.top - nextRect.top;
+        if (dy) {
+          el.style.transition = "none";
+          el.style.transform = `translateY(${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = "transform 160ms ease";
+            el.style.transform = "";
+          });
+        }
+      }
+    }
+    const next = {};
+    for (const id of order) {
+      const el = itemRefs.current[id];
+      if (el) next[id] = el.getBoundingClientRect();
+    }
+    prevRectsRef.current = next;
+  }, [order, draggingId]);
+
   function move(id, direction) {
     const idx = sectionOrder.indexOf(id);
     const swapWith = idx + direction;
@@ -960,15 +1065,86 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
     onReorderSections(next);
   }
 
+  function handleDragPointerDown(e, id) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const startOrder = sectionOrder;
+    const rects = startOrder.map((sid) => itemRefs.current[sid]?.getBoundingClientRect());
+    if (rects.some((r) => !r)) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const startIndex = startOrder.indexOf(id);
+    const step = rects.length > 1 ? (rects[rects.length - 1].top - rects[0].top) / (rects.length - 1) : 0;
+    dragRef.current = { pointerId: e.pointerId, id, startY: e.clientY, startOrder, startIndex, step };
+    setDraggingId(id);
+    setDragOffset(0);
+    try { navigator.vibrate?.(8); } catch {}
+  }
+
+  function handleDragPointerMove(e) {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    e.preventDefault();
+    const rawDy = e.clientY - drag.startY;
+    if (drag.step > 0) {
+      const targetIndex = Math.max(0, Math.min(drag.startOrder.length - 1, Math.round(drag.startIndex + rawDy / drag.step)));
+      const newOrder = arrayMove(drag.startOrder, drag.startIndex, targetIndex);
+      setOrder((current) => {
+        if (current.length === newOrder.length && current.every((v, i) => v === newOrder[i])) return current;
+        return newOrder;
+      });
+      setDragOffset(rawDy - (targetIndex - drag.startIndex) * drag.step);
+    } else {
+      setDragOffset(rawDy);
+    }
+  }
+
+  function endDrag(e) {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    dragRef.current = null;
+    setDraggingId(null);
+    setDragOffset(0);
+    onReorderSections(order);
+  }
+
   return (
     <>
-      {sectionOrder.map((id, idx) => {
+      {order.map((id, idx) => {
         const visible = !hiddenSections.includes(id);
         const atTop = idx === 0;
-        const atBottom = idx === sectionOrder.length - 1;
+        const atBottom = idx === order.length - 1;
+        const isDragging = draggingId === id;
         return (
-          <div key={id} className="flex items-center justify-between text-[13px]" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>
-            <div className="flex items-center gap-3">
+          <div
+            key={id}
+            ref={(el) => { if (el) itemRefs.current[id] = el; }}
+            className="flex items-center justify-between text-[13px]"
+            style={{
+              color: chrome.ink,
+              fontFamily: "'Inter', sans-serif",
+              transform: isDragging ? `translateY(${dragOffset}px)` : undefined,
+              transition: isDragging ? "none" : undefined,
+              position: "relative",
+              zIndex: isDragging ? 10 : "auto",
+              backgroundColor: isDragging ? chrome.card : "transparent",
+              boxShadow: isDragging ? "0 6px 16px rgba(0,0,0,0.18)" : "none",
+              borderRadius: isDragging ? "10px" : 0,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                onPointerDown={(e) => handleDragPointerDown(e, id)}
+                onPointerMove={handleDragPointerMove}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                role="button"
+                tabIndex={-1}
+                aria-hidden="true"
+                aria-label={t(lang, "sectionDragHandle")}
+                className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: chrome.chipBg, touchAction: "none", cursor: "grab" }}
+              >
+                <GripVertical size={19} color={chrome.ink} style={{ opacity: 0.6 }} />
+              </div>
               <div className="flex gap-1.5">
                 <button
                   onClick={() => move(id, -1)}
@@ -1046,6 +1222,19 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
         </p>
       </div>
 
+      <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
+        <p className="text-[14px] font-medium mb-1" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "whatIsRssTitle")}</p>
+        <a
+          href={lang === "it" ? "https://it.wikipedia.org/wiki/RSS" : "https://en.wikipedia.org/wiki/RSS"}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 text-[13px]"
+          style={{ color: chrome.ink, opacity: 0.75, fontFamily: "'Inter', sans-serif" }}
+        >
+          {t(lang, "whatIsRssLinkLabel")} <ExternalLink size={13} />
+        </a>
+      </div>
+
       {/* Sezione dedicata e chiaramente etichettata, non solo il link al sito
           dello sviluppatore in fondo alla pagina: richiesta esplicita della
           policy Play Store "News and Magazines" (rifiuto ricevuto ad agosto
@@ -1076,6 +1265,9 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
         </a>
         <p className="text-[10px] mt-1" style={{ color: chrome.ink, opacity: 0.3, fontFamily: "'Inter', sans-serif" }}>
           v{APP_VERSION}
+        </p>
+        <p className="text-[10px] mt-2 px-4 leading-snug" style={{ color: chrome.ink, opacity: 0.3, fontFamily: "'Inter', sans-serif" }}>
+          {t(lang, "betaTestersLine")}
         </p>
       </div>
     </div>
@@ -1196,7 +1388,7 @@ export default function App() {
   // (trovato testando con un profilo non tecnico). Se non si trova nulla,
   // lancia un errore — il chiamante (FeedsScreen) lo mostra nel form invece
   // di chiudere come se fosse andato tutto bene.
-  const addFeed = useCallback(async (url) => {
+  const addFeed = useCallback(async (url, label) => {
     let feedUrl = url;
     let data = null;
     try {
@@ -1216,7 +1408,7 @@ export default function App() {
     }
     if (!data) throw new Error("no feed found");
     const id = crypto.randomUUID();
-    const newFeed = { id, url: feedUrl, enabled: true, weight: 1 };
+    const newFeed = { id, url: feedUrl, enabled: true, weight: 1, ...(label ? { label } : {}) };
     setFeedList((prev) => {
       const next = [...prev, newFeed];
       saveFeedList(next);
