@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
-import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown } from "lucide-react";
+import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl, runWithConcurrency } from "./lib/rss";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
@@ -1023,6 +1023,24 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
         <p className="text-[12.5px]" style={{ color: chrome.ink, opacity: 0.7, fontFamily: "'Inter', sans-serif" }}>
           {t(lang, "noUnreadNote")}
         </p>
+      </div>
+
+      {/* Sezione dedicata e chiaramente etichettata, non solo il link al sito
+          dello sviluppatore in fondo alla pagina: richiesta esplicita della
+          policy Play Store "News and Magazines" (rifiuto ricevuto ad agosto
+          2026, motivo "manca una pagina di contatto in-app chiaramente
+          etichettata"). Stessa email della pagina Contatti/Privacy sul sito
+          (docs/contact.html, docs/privacy.html) — tenerle allineate. */}
+      <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
+        <p className="text-[14px] font-medium mb-1" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "contactTitle")}</p>
+        <a
+          href="mailto:xabacadabra@gmail.com"
+          className="flex items-center gap-2 text-[13px]"
+          style={{ color: chrome.ink, opacity: 0.75, fontFamily: "'Inter', sans-serif" }}
+        >
+          <Mail size={14} />
+          xabacadabra@gmail.com
+        </a>
       </div>
 
       <div className="mt-6 text-center">
