@@ -1,16 +1,23 @@
-// Proxy CORS pubblici di fallback, provati in ordine finché uno risponde.
-// Nessuno è garantito: sono servizi di terzi best-effort, non un'infrastruttura
-// nostra (vedi README, sezione "Limiti noti").
+// Proxy CORS pubblici di fallback, provati in parallelo (vedi
+// fetchTextWithFallback) finché uno risponde. Nessuno è garantito: sono
+// servizi di terzi best-effort, non un'infrastruttura nostra (vedi README,
+// sezione "Limiti noti").
 //
 // corsproxy.io tolto: da qualche tempo risponde 401 "A valid API key is
 // required" su ogni richiesta, qualunque sia la fonte (verificato con curl,
 // agosto 2026) — non un problema di una fonte specifica, il servizio è di
-// fatto morto per un uso senza chiave. proxy.cors.sh lo sostituisce (stesso
-// controllo: risponde 200 in centinaia di ms su più fonti diverse).
-const CORS_PROXIES = [
-  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url) => `https://proxy.cors.sh/${url}`,
-];
+// fatto morto per un uso senza chiave.
+//
+// allorigins.win tolto a sua volta: stress test su tutte le 40 fonti di
+// default+pacchetti curati (agosto 2026) — 3/40 richieste riuscite, e anche
+// quelle 3 in una media di 5s, sopra il timeout reale di 4s che l'app usa
+// per tentativo (FETCH_TIMEOUT_MS). Contribuiva zero volte utili pur
+// restando comunque una richiesta in volo per ogni fetch. Nessun altro
+// proxy pubblico gratuito provato come sostituto si è rivelato affidabile
+// (redirect verso domini estranei, 429, 500, timeout) — stessa sorte già
+// toccata a corsproxy.io. proxy.cors.sh resta l'unico proxy: nello stesso
+// stress test, 39/40 riuscite, ~470ms di media.
+const CORS_PROXIES = [(url) => `https://proxy.cors.sh/${url}`];
 
 // Ridotto da 6000: con l'aggiunta di una fonte che incatena più tentativi in
 // sequenza (fetch diretto, poi autodiscovery, poi percorsi comuni) un
@@ -64,12 +71,12 @@ export async function fetchTextWithFallback(url) {
 
 // Esegue `worker` su ogni elemento di `items` con al più `limit` in volo
 // contemporaneamente. Usato per non lanciare tutti i refresh delle fonti in
-// un colpo solo: con molte fonti abilitate, ognuna che fa partire fino a 3
-// richieste in parallelo (diretta + le due catene di proxy CORS), significa
-// decine di richieste simultanee sugli stessi due proxy pubblici gratuiti —
-// che sotto carico rispondono lenti o falliscono, facendo apparire tante
-// fonti come "non raggiungibili" tutte assieme anche se singolarmente
-// funzionano bene (segnalato dall'utente testando con molte fonti assieme).
+// un colpo solo: con molte fonti abilitate, ognuna che fa partire fino a 2
+// richieste in parallelo (diretta + proxy CORS), significa decine di
+// richieste simultanee sullo stesso proxy pubblico gratuito — che sotto
+// carico risponde lento o fallisce, facendo apparire tante fonti come "non
+// raggiungibili" tutte assieme anche se singolarmente funzionano bene
+// (segnalato dall'utente testando con molte fonti assieme).
 export async function runWithConcurrency(items, limit, worker) {
   const queue = [...items];
   const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {

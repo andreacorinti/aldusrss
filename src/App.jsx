@@ -61,7 +61,7 @@ const IS_FULL_BLEED = IS_NATIVE || IS_ELECTRON;
 
 // Quante fonti aggiornare in parallelo (vedi runWithConcurrency in rss.js):
 // abbastanza per restare veloci con poche fonti, abbastanza poco da non
-// sovraccaricare i due proxy CORS pubblici e gratuiti quando le fonti sono
+// sovraccaricare il proxy CORS pubblico e gratuito quando le fonti sono
 // molte.
 const REFRESH_CONCURRENCY = 3;
 
