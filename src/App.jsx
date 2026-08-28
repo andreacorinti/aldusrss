@@ -1042,7 +1042,7 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
           el.style.transition = "none";
           el.style.transform = `translateY(${dy}px)`;
           requestAnimationFrame(() => {
-            el.style.transition = "transform 160ms ease";
+            el.style.transition = "transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1)";
             el.style.transform = "";
           });
         }
@@ -1073,11 +1073,20 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
     e.currentTarget.setPointerCapture(e.pointerId);
     const startIndex = startOrder.indexOf(id);
     const step = rects.length > 1 ? (rects[rects.length - 1].top - rects[0].top) / (rects.length - 1) : 0;
-    dragRef.current = { pointerId: e.pointerId, id, startY: e.clientY, startOrder, startIndex, step };
+    dragRef.current = { pointerId: e.pointerId, id, startY: e.clientY, startOrder, startIndex, step, lastTarget: startIndex };
     setDraggingId(id);
     setDragOffset(0);
     try { navigator.vibrate?.(8); } catch {}
   }
+
+  // Soglia di isteresi (0.65 di una riga) invece di un semplice arrotondamento
+  // al 50%: senza, una mano poco ferma vicino al confine tra due righe faceva
+  // scambiare l'ordine avanti e indietro di continuo ("sbattimento"),
+  // percepito come poco preciso e troppo reattivo (segnalato dall'utente).
+  // Confrontare sempre con l'ultimo bersaglio raggiunto, non con la
+  // posizione di partenza, rende lo scambio "appiccicoso": serve superare la
+  // soglia di nuovo per tornare indietro, non basta un tremolio di un pixel.
+  const DRAG_SWAP_THRESHOLD = 0.65;
 
   function handleDragPointerMove(e) {
     const drag = dragRef.current;
@@ -1085,13 +1094,19 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
     e.preventDefault();
     const rawDy = e.clientY - drag.startY;
     if (drag.step > 0) {
-      const targetIndex = Math.max(0, Math.min(drag.startOrder.length - 1, Math.round(drag.startIndex + rawDy / drag.step)));
-      const newOrder = arrayMove(drag.startOrder, drag.startIndex, targetIndex);
-      setOrder((current) => {
-        if (current.length === newOrder.length && current.every((v, i) => v === newOrder[i])) return current;
-        return newOrder;
-      });
-      setDragOffset(rawDy - (targetIndex - drag.startIndex) * drag.step);
+      const floatIndex = drag.startIndex + rawDy / drag.step;
+      let target = drag.lastTarget;
+      while (floatIndex - target > DRAG_SWAP_THRESHOLD && target < drag.startOrder.length - 1) target++;
+      while (floatIndex - target < -DRAG_SWAP_THRESHOLD && target > 0) target--;
+      if (target !== drag.lastTarget) {
+        drag.lastTarget = target;
+        const newOrder = arrayMove(drag.startOrder, drag.startIndex, target);
+        setOrder((current) => {
+          if (current.length === newOrder.length && current.every((v, i) => v === newOrder[i])) return current;
+          return newOrder;
+        });
+      }
+      setDragOffset(rawDy - (drag.lastTarget - drag.startIndex) * drag.step);
     } else {
       setDragOffset(rawDy);
     }
