@@ -1,3 +1,5 @@
+import { stripHtml } from "./format";
+
 // Proxy CORS pubblici di fallback, provati in parallelo (vedi
 // fetchTextWithFallback) finché uno risponde. Nessuno è garantito: sono
 // servizi di terzi best-effort, non un'infrastruttura nostra (vedi README,
@@ -154,7 +156,12 @@ function parseRss(doc) {
       link: itemLink,
       description,
       pubDate: firstTag(item, ["pubDate", "dc:date"]),
-      author: firstTag(item, ["author", "dc:creator"]),
+      // stripHtml perché alcuni feed (es. Il Sole 24 Ore) mettono markup vero
+      // dentro il CDATA di dc:creator, es. `di <a href="...">R.I.T.</a>`: è
+      // testo letterale (non elementi XML annidati), quindi .textContent lo
+      // restituisce con i tag inclusi e comparirebbe a schermo come codice
+      // HTML al posto del nome (segnalato dall'utente).
+      author: stripHtml(firstTag(item, ["author", "dc:creator"])),
       categories,
       image: extractImage(item, description),
     };
@@ -184,7 +191,7 @@ function parseAtom(doc) {
       link: entryLink,
       description,
       pubDate: firstTag(entry, ["published", "updated"]),
-      author: firstTag(entry, ["author"]),
+      author: stripHtml(firstTag(entry, ["author"])),
       categories,
       image: extractImage(entry, description),
     };
