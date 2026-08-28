@@ -1269,10 +1269,39 @@ export default function App() {
     setArticle(false);
   }, [sectionTabs]);
 
+  // Calcolato indipendentemente dalla scheda attiva (non solo quando si è
+  // su Prima Pagina): l'hero di una sezione deve sapere di dover scavalcare
+  // quello di Prima Pagina anche se l'utente apre direttamente Attualità
+  // senza prima passare da lì.
+  const frontPageComposed = useMemo(
+    () => composeArticles(allArticles, sourceWeights, { diversify: true }),
+    [allArticles, sourceWeights]
+  );
+  const frontPageHeroIds = useMemo(
+    () => new Set(frontPageComposed.hero ? [frontPageComposed.hero.id] : []),
+    [frontPageComposed.hero]
+  );
+
   const currentView = useMemo(() => {
     const isFront = activeSection === FRONT_PAGE_ID;
-    const articles = isFront ? allArticles : allArticles.filter((a) => a.section === activeSection);
-    const composed = composeArticles(articles, sourceWeights, { diversify: isFront });
+    if (isFront) {
+      const sectionMeta = buildSectionMeta(activeSection);
+      const template = resolveTemplate(TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
+      return {
+        id: sectionMeta.id,
+        label: t(lang, sectionMeta.labelKey),
+        accent: template.accent,
+        paper: template.paper,
+        ink: template.ink,
+        headlineStyle: template.headlineStyle,
+        hero: frontPageComposed.hero ? mapArticle(frontPageComposed.hero, lang) : null,
+        secondary: frontPageComposed.secondary.map((a) => mapArticle(a, lang)),
+        brief: frontPageComposed.brief.map((a) => ({ title: a.title, tag: a.sourceName || "", link: a.link })),
+        stale: frontPageComposed.stale,
+      };
+    }
+    const articles = allArticles.filter((a) => a.section === activeSection);
+    const composed = composeArticles(articles, sourceWeights, { diversify: false, excludeHeroIds: frontPageHeroIds });
     const sectionMeta = buildSectionMeta(activeSection);
     const template = resolveTemplate(TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
     return {
@@ -1287,7 +1316,7 @@ export default function App() {
       brief: composed.brief.map((a) => ({ title: a.title, tag: a.sourceName || "", link: a.link })),
       stale: composed.stale,
     };
-  }, [activeSection, allArticles, sourceWeights, darkMode, lang]);
+  }, [activeSection, allArticles, sourceWeights, darkMode, lang, frontPageComposed, frontPageHeroIds]);
 
   const paperColor = anyReady ? currentView.paper : chrome.screenBg;
 

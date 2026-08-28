@@ -127,7 +127,14 @@ const MAX_PER_SECTION_FRONT_PAGE = 3;
 // da cui pescare.
 const MAX_PER_SOURCE_SECTION = 4;
 
-function bucketArticles(sorted, { diversify = false } = {}) {
+// Solo per le sezioni tematiche (mai per Prima Pagina stessa): l'apertura di
+// una sezione che ripete parola per parola l'apertura di Prima Pagina la fa
+// sembrare un doppione invece di una rubrica con una propria identità
+// (segnalato dall'utente). L'articolo resta comunque eleggibile per
+// secondaria/in breve in quella sezione — viene solo scavalcato per l'hero,
+// non tolto dal tutto: è ancora la notizia migliore di quella sezione, va
+// comunque mostrata, solo non due volte "in prima fila".
+function bucketArticles(sorted, { diversify = false, excludeHeroIds } = {}) {
   if (sorted.length === 0) return { hero: null, secondary: [], brief: [], stale: false };
 
   const fresh = sorted.filter(isFresh);
@@ -154,7 +161,11 @@ function bucketArticles(sorted, { diversify = false } = {}) {
   // peso Alto restava sempre in "in breve"). La vista mostra comunque
   // un'immagine (placeholder) per ogni hero, vera o no, quindi la resa
   // visiva non cambia — solo cosa vince in base al punteggio reale.
-  const hero = pool[0];
+  // Sceglie il primo del pool che non sia già l'hero di Prima Pagina: se
+  // proprio non c'è altro (la sezione ha un solo pezzo disponibile, ed è
+  // quello) ripiega comunque su di lui, una sezione vuota sarebbe peggio.
+  const heroIdx = excludeHeroIds ? pool.findIndex((a) => !excludeHeroIds.has(a.id)) : 0;
+  const hero = pool[heroIdx === -1 ? 0 : heroIdx];
   const rest = pool.filter((a) => a.id !== hero.id);
 
   // A differenza del pool (dove il ripiego sul non-fresco serve a non far
