@@ -1260,6 +1260,17 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
         >
           {t(lang, "whatIsRssLinkLabel")} <ExternalLink size={13} />
         </a>
+        {lang === "it" && (
+          <a
+            href="https://www.andreacorinti.com/posts/rss-spiegato/"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-[13px] mt-1.5"
+            style={{ color: chrome.ink, opacity: 0.75, fontFamily: "'Inter', sans-serif" }}
+          >
+            {t(lang, "whatIsRssSimpleLinkLabel")} <ExternalLink size={13} />
+          </a>
+        )}
       </div>
 
       {/* Sezione dedicata e chiaramente etichettata, non solo il link al sito
