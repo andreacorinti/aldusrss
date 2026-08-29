@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perché alcune fonti non ci sono — AldusRSS</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 60px 20px;
+    line-height: 1.6;
+    color: #211D19;
+    background: #EDE8DC;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #EDE6D8; background: #1C1815; }
+    a { color: #E5636A; }
+    .reason { background: #2A241F; }
+  }
+  h1 { font-size: 26px; margin-bottom: 4px; text-align: center; }
+  .sub { opacity: 0.6; margin-top: 0; text-align: center; }
+  a { color: #A31E22; }
+  h2 { font-size: 17px; margin-top: 40px; }
+  .reason {
+    background: #E3DCCB;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 12px 0;
+  }
+  .reason .name { font-weight: 600; }
+  .reason .why { font-size: 14px; opacity: 0.8; margin-top: 4px; }
+  .verified { font-size: 12px; opacity: 0.5; margin-top: 6px; }
+  .links { margin-top: 48px; font-size: 14px; opacity: 0.8; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>Perché alcune fonti non ci sono</h1>
+  <p class="sub">AldusRSS — un lettore RSS che compone da solo un giornale personale</p>
+
+  <p>AldusRSS legge i feed RSS direttamente dai server di ogni editore, esattamente come farebbe un browser. Non abbiamo un archivio nostro né un accordo con le testate: se un editore smette di aggiornare il proprio feed, o blocca deliberatamente le richieste automatiche, l'app semplicemente non riesce a leggere quella fonte — non è un limite di AldusRSS, è una scelta o una svista di chi gestisce il sito.</p>
+
+  <p>Ogni fonte qui sotto è stata verificata a mano (con <code>curl</code>, non solo "provato una volta nell'app") prima di escluderla. Se qualcosa cambia lato editore, siamo felici di riprovare — <a href="contact.html">scrivici</a> se conosci un indirizzo feed alternativo funzionante.</p>
+
+  <h2>Bloccano deliberatamente le richieste automatiche</h2>
+  <p style="font-size:14px; opacity:0.75;">Questi siti rifiutano la richiesta con un errore (spesso "403 Forbidden") quando arriva da uno script invece che da un browser con una persona dietro — anche imitando un browser vero. È una scelta tecnica dell'editore, quasi sempre per limitare scraping o traffico automatico indesiderato.</p>
+
+  <div class="reason">
+    <div class="name">Il Post</div>
+    <div class="why">Il feed risponde sempre con un errore 403 ("La pagina che hai cercato di raggiungere è stata bloccata"), anche con header identici a quelli di un browser reale.</div>
+    <div class="verified">Verificato agosto 2026</div>
+  </div>
+  <div class="reason">
+    <div class="name">PCGamer, GamesRadar</div>
+    <div class="why">Entrambi dello stesso editore (Future plc): bloccano selettivamente gli indirizzi IP dei proxy CORS pubblici che l'app usa per aggirare le restrizioni del browser — altri feed passano nello stesso momento, quindi non è un problema temporaneo dei proxy.</div>
+    <div class="verified">Verificato agosto 2026</div>
+  </div>
+  <div class="reason">
+    <div class="name">Polygon</div>
+    <div class="why">Il feed non invia le intestazioni CORS necessarie perché un browser possa leggerlo, e i proxy pubblici falliscono comunque su questo dominio.</div>
+    <div class="verified">Verificato agosto 2026</div>
+  </div>
+
+  <h2>Il feed esiste ma l'editore l'ha di fatto abbandonato</h2>
+  <p style="font-size:14px; opacity:0.75;">Questi indirizzi rispondono correttamente (200 OK), ma il contenuto non viene più aggiornato da mesi o anni — mostrarli comunque significherebbe riempire il tuo giornale di notizie vecchie senza avvisarti.</p>
+
+  <div class="reason">
+    <div class="name">Corriere della Sera</div>
+    <div class="why">Il feed risponde, ma l'ultimo articolo pubblicato risale a maggio 2024.</div>
+    <div class="verified">Verificato agosto 2026</div>
+  </div>
+  <div class="reason">
+    <div class="name">Gazzetta dello Sport</div>
+    <div class="why">Il feed risponde, ma l'ultimo articolo pubblicato risale a dicembre 2023.</div>
+    <div class="verified">Verificato agosto 2026</div>
+  </div>
+  <div class="reason">
+    <div class="name">Corriere dello Sport, Tuttosport</div>
+    <div class="why">I feed rispondono ma sono vuoti: nessun articolo elencato.</div>
+    <div class="verified">Verificato agosto 2026</div>
+  </div>
+
+  <p style="margin-top:40px; font-size:14px; opacity:0.75;">Questa pagina non è un elenco esaustivo: copre solo le fonti popolari che i beta tester hanno chiesto esplicitamente. Se una fonte che ti interessa manca semplicemente perché non l'abbiamo ancora provata, prova ad aggiungerla dall'app — se non funziona te lo dirà, e puoi <a href="contact.html">segnalarcelo</a>.</p>
+
+  <div class="links">
+    <a href="index.html">AldusRSS</a> · <a href="privacy.html">Informativa sulla privacy</a> · <a href="contact.html">Contatti</a> · <a href="credits.html">Crediti</a>
+  </div>
+</body>
+</html>

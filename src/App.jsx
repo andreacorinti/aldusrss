@@ -990,6 +990,18 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
           </button>
         )}
       </div>
+
+      <div className="mt-4 text-center">
+        <a
+          href="https://andreacorinti.github.io/aldusrss/blocked-feeds.html"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[12px]"
+          style={{ color: chrome.ink, opacity: 0.45, fontFamily: "'Inter', sans-serif" }}
+        >
+          {t(lang, "blockedFeedsLinkLabel")} <ExternalLink size={11} />
+        </a>
+      </div>
     </div>
   );
 }
