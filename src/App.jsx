@@ -1145,6 +1145,14 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
     dragRef.current = null;
     setDraggingId(null);
     setDragOffset(0);
+    // Il rettangolo registrato per questa riga durante il trascinamento
+    // includeva ancora il transform di dragOffset: al rilascio, l'effetto
+    // FLIP la trattava come "appena spostata" rispetto a quella posizione
+    // fantasma e la animava indietro, producendo un rimbalzo su/giù visibile
+    // proprio nell'istante del rilascio (segnalato dall'utente). Cancellando
+    // il rettangolo registrato, l'effetto la tratta come una riga senza
+    // storico e non applica nessuna compensazione: resta ferma dov'è.
+    delete prevRectsRef.current[drag.id];
     onReorderSections(order);
   }
 
