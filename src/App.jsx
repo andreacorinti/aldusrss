@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
-import { Capacitor } from "@capacitor/core";
-import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail, GripVertical } from "lucide-react";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail, GripVertical, Trash2 } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
@@ -16,6 +16,7 @@ import {
   loadCache,
   saveSourceCache,
   removeSourceCache,
+  clearAllSourceCache,
   loadHiddenSections,
   saveHiddenSections,
   loadSectionOrderPref,
@@ -62,10 +63,24 @@ const IS_ELECTRON = typeof window !== "undefined" && window.__ALDUSRSS_DESKTOP__
 const IS_FULL_BLEED = IS_NATIVE || IS_ELECTRON;
 
 // Quante fonti aggiornare in parallelo, condiviso da tutta l'app tramite la
-// coda di refresh più sotto (enqueueRefresh): abbastanza per restare veloci
-// con poche fonti, abbastanza poco da non sovraccaricare il proxy CORS
-// pubblico e gratuito quando le fonti sono molte.
-const REFRESH_CONCURRENCY = 3;
+// coda di refresh più sotto (enqueueRefresh). Alzato da 3 a 6 dopo uno
+// stress test mirato (agosto 2026, script Node su fetchTextWithFallback,
+// tutte le 43 fonti attuali di default+pacchetti curati, ripetuto più
+// volte): concorrenza 3 impiegava ~4.3s, 6 ~2.5s (quasi il doppio più
+// veloce), 8 ~2.2s ma con margine risicato, 10 peggiorava di nuovo a ~2.8s
+// (segno di saturazione del proxy) — stesso tasso di successo (42/43) a
+// ogni livello testato, quindi non è un compromesso su affidabilità. 6
+// resta un margine di sicurezza sotto al punto dove i tempi ricominciano a
+// peggiorare, invece di inseguire il minimo assoluto misurato una volta sola.
+const REFRESH_CONCURRENCY = 6;
+
+// Plugin nativo Android (vedi CacheClearPlugin.java) che svuota la cache
+// della WebView — immagini e risposte di rete delle fonti RSS, la parte che
+// pesa davvero sullo spazio occupato dall'app. Non esiste su web/Electron:
+// lì il pulsante "Svuota cache" in Impostazioni si limita a cancellare gli
+// articoli salvati in localStorage (comunque utile per liberare quello
+// spazio e forzare un refresh pulito, solo meno rilevante in termini di MB).
+const CacheClearPlugin = registerPlugin("CacheClear");
 
 const WEIGHT_LEVELS = [
   { value: 0.5, labelKey: "weightLow" },
@@ -1208,7 +1223,22 @@ function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggleSection
   );
 }
 
-function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReorderSections, darkMode, onToggleDarkMode, chrome, lang }) {
+function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReorderSections, darkMode, onToggleDarkMode, onClearCache, chrome, lang }) {
+  const [clearing, setClearing] = useState(false);
+  const [justCleared, setJustCleared] = useState(false);
+
+  async function handleClearCache() {
+    if (!window.confirm(t(lang, "clearCacheConfirm"))) return;
+    setClearing(true);
+    setJustCleared(false);
+    try {
+      await onClearCache();
+      setJustCleared(true);
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
     <div className="px-5 pt-4 pb-8">
       <h2 className="text-[20px]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, color: chrome.ink }}>{t(lang, "tabSettings")}</h2>
@@ -1247,6 +1277,23 @@ function SettingsScreen({ hiddenSections, onToggleSection, sectionOrder, onReord
         <p className="text-[12.5px]" style={{ color: chrome.ink, opacity: 0.7, fontFamily: "'Inter', sans-serif" }}>
           {t(lang, "noUnreadNote")}
         </p>
+      </div>
+
+      <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
+        <p className="text-[14px] font-medium mb-1" style={{ color: chrome.ink, fontFamily: "'Inter', sans-serif" }}>{t(lang, "clearCacheTitle")}</p>
+        <p className="text-[12px] mb-3" style={{ color: chrome.ink, opacity: 0.55, fontFamily: "'Inter', sans-serif" }}>{t(lang, "clearCacheSubtitle")}</p>
+        <button
+          onClick={handleClearCache}
+          disabled={clearing}
+          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-[12.5px] font-medium border"
+          style={{ borderColor: chrome.divider, color: chrome.ink, opacity: clearing ? 0.6 : 1 }}
+        >
+          {clearing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          {t(lang, "clearCacheButton")}
+        </button>
+        {justCleared && !clearing && (
+          <p className="mt-2 text-[11.5px]" style={{ color: chrome.success }}>{t(lang, "clearCacheDone")}</p>
+        )}
       </div>
 
       <div className="mt-3 p-4 rounded-lg" style={{ backgroundColor: chrome.card, border: `1px solid ${chrome.cardBorder}` }}>
@@ -1393,6 +1440,25 @@ export default function App() {
 
   const refreshAllFeeds = useCallback(() => {
     enqueueRefresh(feedList);
+  }, [feedList, enqueueRefresh]);
+
+  // "Svuota cache" in Impostazioni: cancella gli articoli salvati (non
+  // l'elenco dei feed) e, su Android, anche la cache della WebView
+  // (immagini comprese) tramite CacheClearPlugin — poi rifà subito un
+  // refresh completo, così l'utente non si ritrova con un giornale vuoto
+  // in attesa che tocchi lui "Aggiorna".
+  const clearCache = useCallback(async () => {
+    clearAllSourceCache();
+    setSources({});
+    if (IS_NATIVE) {
+      try {
+        await CacheClearPlugin.clear();
+      } catch {
+        // plugin non disponibile (piattaforma diversa da Android): la pulizia
+        // di localStorage sopra resta comunque valida.
+      }
+    }
+    await enqueueRefresh(feedList);
   }, [feedList, enqueueRefresh]);
 
   // Importa in blocco un pacchetto di fonti curate (curatedFeeds.js): gli
@@ -1727,6 +1793,7 @@ export default function App() {
               onReorderSections={reorderSections}
               darkMode={darkMode}
               onToggleDarkMode={toggleDarkMode}
+              onClearCache={clearCache}
               chrome={chrome}
               lang={lang}
             />

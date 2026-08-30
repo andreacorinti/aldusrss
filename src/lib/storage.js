@@ -143,6 +143,17 @@ export function removeSourceCache(id) {
   }
 }
 
+// Usata dal pulsante "Svuota cache" in Impostazioni: rimuove tutti gli
+// articoli salvati (forza un refresh completo da zero) senza toccare
+// l'elenco dei feed dell'utente, le preferenze o l'ordine delle sezioni.
+export function clearAllSourceCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // ignora
+  }
+}
+
 export function loadHiddenSections() {
   try {
     const raw = localStorage.getItem(HIDDEN_SECTIONS_KEY);
