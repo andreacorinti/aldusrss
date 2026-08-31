@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { App as CapacitorApp } from "@capacitor/app";
 import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail, GripVertical, Trash2 } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
@@ -1382,6 +1383,32 @@ export default function App() {
   const [tab, setTab] = useState("front");
   const [activeSection, setActiveSection] = useState(FRONT_PAGE_ID);
   const [article, setArticle] = useState(false);
+
+  // Il tasto "indietro" hardware di Android, senza un listener dedicato,
+  // fa da sé: chiude/minimizza l'app invece di tornare alla schermata
+  // precedente (Capacitor non intercetta il back button di default).
+  // Segnalato dal tester Jovan: aprendo un articolo in Prima Pagina e
+  // premendo "indietro" l'app si chiudeva invece di tornare alla lista.
+  // I ref (invece di leggere tab/article direttamente) servono perché il
+  // listener va registrato una sola volta: senza ref leggerebbe per sempre
+  // i valori del primo render.
+  const tabRef = useRef(tab);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
+  const articleRef = useRef(article);
+  useEffect(() => { articleRef.current = article; }, [article]);
+  useEffect(() => {
+    if (!IS_NATIVE) return;
+    const handlePromise = CapacitorApp.addListener("backButton", () => {
+      if (articleRef.current) {
+        setArticle(false);
+      } else if (tabRef.current !== "front") {
+        setTab("front");
+      } else {
+        CapacitorApp.exitApp();
+      }
+    });
+    return () => { handlePromise.then((handle) => handle.remove()); };
+  }, []);
 
   const refreshSource = useCallback(async (feed) => {
     setSources((prev) => ({ ...prev, [feed.id]: { ...(prev[feed.id] || {}), id: feed.id, status: "loading" } }));
