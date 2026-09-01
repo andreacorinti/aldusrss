@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test": "vitest run",
     "preview": "vite preview",
     "android:sync": "npm run build && npx cap sync android",
     "android:build": "npm run android:sync && cd android && ./gradlew assembleDebug",
@@ -43,7 +44,9 @@
     "@vitejs/plugin-react": "^6.1.0",
     "electron": "^31.7.7",
     "electron-builder": "^26.15.3",
+    "jsdom": "^29.1.1",
     "oxlint": "^1.79.0",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
   }
 }

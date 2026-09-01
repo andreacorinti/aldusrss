@@ -232,7 +232,11 @@ function ArticleImage({ src, seed, label, className, style, fontSize = "22px" })
   // del browser al posto del placeholder con iniziale, per ogni articolo di
   // quella fonte (segnalato dall'utente).
   const [broken, setBroken] = useState(false);
-  useEffect(() => setBroken(false), [src]);
+  const [lastSrc, setLastSrc] = useState(src);
+  if (src !== lastSrc) {
+    setLastSrc(src);
+    setBroken(false);
+  }
   if (src && !broken) {
     return <img src={src} alt="" className={className} style={style} onError={() => setBroken(true)} />;
   }
