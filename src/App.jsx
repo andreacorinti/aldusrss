@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
-import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail, GripVertical, Trash2 } from "lucide-react";
+import { RefreshCw, Rss, Newspaper, Settings2, ArrowLeft, Clock, Plus, X, Loader2, AlertTriangle, ExternalLink, Moon, ChevronUp, ChevronDown, Mail, GripVertical, Trash2, Upload } from "lucide-react";
 import { fetchTextWithFallback, parseFeed, discoverFeedUrl } from "./lib/rss";
+import { parseOpml } from "./lib/opml";
 import { assignSection, composeArticles, isFresh } from "./lib/classify";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
@@ -738,13 +739,39 @@ function ArticleView({ view, lang, onBack }) {
   );
 }
 
-function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, onRemovePack, onWeightChange, chrome, lang }) {
+function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, onRemovePack, onImportOpml, onWeightChange, chrome, lang }) {
   const [adding, setAdding] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [addError, setAddError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [addingPackId, setAddingPackId] = useState(null);
+  const [importingOpml, setImportingOpml] = useState(false);
+  const [opmlError, setOpmlError] = useState("");
+  const [opmlResult, setOpmlResult] = useState(null);
+  const opmlInputRef = useRef(null);
+
+  async function handleOpmlFile(e) {
+    const file = e.target.files?.[0];
+    // Azzerato subito, non solo dopo l'esito: senza, riselezionare lo stesso
+    // file una seconda volta (es. per riprovare dopo un errore) non faceva
+    // scattare affatto onChange, perché il valore dell'input non era
+    // cambiato.
+    e.target.value = "";
+    if (!file) return;
+    setOpmlError("");
+    setOpmlResult(null);
+    setImportingOpml(true);
+    try {
+      const text = await file.text();
+      const result = await onImportOpml(text);
+      setOpmlResult(result);
+    } catch {
+      setOpmlError(t(lang, "errorOpmlInvalid"));
+    } finally {
+      setImportingOpml(false);
+    }
+  }
 
   // Ricerca "per nome" tra le testate già conosciute (default + pacchetti
   // curati): richiesta dai tester per non dover cercare a mano l'indirizzo
@@ -949,6 +976,37 @@ function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAddPack, 
                 );
               })}
             </div>
+          )}
+        </div>
+
+        <div className="mt-1">
+          <input
+            ref={opmlInputRef}
+            type="file"
+            accept=".opml,.xml,text/xml,text/x-opml"
+            className="hidden"
+            onChange={handleOpmlFile}
+          />
+          <button
+            onClick={() => opmlInputRef.current?.click()}
+            disabled={importingOpml}
+            className="w-full py-2.5 rounded-lg text-[12.5px] font-medium flex items-center justify-center gap-1.5"
+            style={{ color: chrome.ink, opacity: importingOpml ? 0.5 : 0.75, fontFamily: "'Inter', sans-serif" }}
+          >
+            {importingOpml ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            {t(lang, "importOpmlButton")}
+          </button>
+          {opmlError && (
+            <p className="mt-1 text-[11.5px] text-center" style={{ color: chrome.danger }}>{opmlError}</p>
+          )}
+          {opmlResult && !opmlError && (
+            <p className="mt-1 text-[11.5px] text-center" style={{ color: chrome.success }}>
+              {opmlResult.added === 0
+                ? t(lang, "importOpmlNoneNew")
+                : opmlResult.added === 1
+                  ? t(lang, "importOpmlDoneOne")
+                  : t(lang, "importOpmlDoneMany").replace("{n}", opmlResult.added)}
+            </p>
           )}
         </div>
 
@@ -1530,6 +1588,22 @@ export default function App() {
     await enqueueRefresh(newFeeds);
   }, [feedList, enqueueRefresh]);
 
+  // Importa un file OPML (l'export standard di qualunque altro lettore RSS):
+  // stesso percorso di addFeedsBulk sopra, quindi stesso comportamento sugli
+  // URL già in elenco (saltati, non duplicati) — qui però gli URL vengono da
+  // un file esterno mai verificato, non da un pacchetto curato, quindi non
+  // c'è garanzia che siano feed funzionanti: eventuali fonti morte
+  // compariranno comunque in Feed con lo stato di errore, come già succede
+  // per qualunque fonte che smette di rispondere.
+  const importOpml = useCallback(async (opmlText) => {
+    const entries = parseOpml(opmlText);
+    if (entries.length === 0) throw new Error("nessuna fonte trovata nel file OPML");
+    const existingUrls = new Set(feedList.map((f) => f.url));
+    const added = entries.filter((e) => !existingUrls.has(e.url)).length;
+    await addFeedsBulk(entries);
+    return { added, total: entries.length };
+  }, [feedList, addFeedsBulk]);
+
   // Aggiunge una fonte solo se si riesce davvero a scaricarla e a leggerla
   // come feed — mai "nel dubbio, aggiungiamola comunque e vediamo se
   // funziona": un URL che non porta a nessun feed reale (una frase digitata
@@ -1826,7 +1900,7 @@ export default function App() {
 
         {tab === "feeds" && (
           <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
-            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onAddPack={addFeedsBulk} onRemovePack={removeFeedsBulk} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
+            <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onAddPack={addFeedsBulk} onRemovePack={removeFeedsBulk} onImportOpml={importOpml} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
           </div>
         )}
 
