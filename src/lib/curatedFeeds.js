@@ -65,14 +65,7 @@ export const CURATED_PACKS = [
       { id: "bbc-news", url: "https://feeds.bbci.co.uk/news/rss.xml", label: "BBC News", weight: 1 },
       { id: "guardian-world", url: "https://www.theguardian.com/world/rss", label: "The Guardian", weight: 1 },
       { id: "npr", url: "https://feeds.npr.org/1001/rss.xml", label: "NPR", weight: 1 },
-      // URL del feed diretto (Feedburner), non l'homepage: ekathimerini.com è
-      // dietro una sfida anti-bot Cloudflare che blocca sia il fetch diretto
-      // sia l'autodiscovery (la pagina restituita è la sfida, non l'HTML
-      // reale con il tag <link rel="alternate">) — l'indirizzo del sito da
-      // solo non basta, va aggiunto così. Il feed Feedburner invece non è
-      // protetto e risponde regolarmente (verificato con curl, agosto 2026).
-      { id: "ekathimerini", url: "https://feeds.feedburner.com/ekathimerini/sKip", label: "Ekathimerini", weight: 1 },
-      // Le prime quattro fonti EN erano tutte generaliste (finiscono quasi
+      // Le prime tre fonti EN erano tutte generaliste (finiscono quasi
       // tutte in Attualità): queste aggiungono varietà tematica invece di
       // impilarsi sulla stessa sezione — verificate via curl (raggiungibili
       // sia dirette sia attraverso il proxy CORS, senza redirect che rompe il
