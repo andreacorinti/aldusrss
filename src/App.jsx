@@ -226,8 +226,15 @@ function Masthead({ view, lang }) {
 // dell'articolo) ma comunica qualcosa di reale, la fonte, invece di una
 // lettera vuota (segnalato dall'utente).
 function ArticleImage({ src, seed, label, className, style, fontSize = "22px" }) {
-  if (src) {
-    return <img src={src} alt="" className={className} style={style} />;
+  // Alcuni feed (es. GameSurf) pubblicano URL immagine già rotti in partenza
+  // (404 sul loro stesso CDN, non un problema di rete nostro): senza gestire
+  // l'errore di caricamento, l'utente si ritrovava l'icona di immagine rotta
+  // del browser al posto del placeholder con iniziale, per ogni articolo di
+  // quella fonte (segnalato dall'utente).
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  if (src && !broken) {
+    return <img src={src} alt="" className={className} style={style} onError={() => setBroken(true)} />;
   }
   return (
     <div
