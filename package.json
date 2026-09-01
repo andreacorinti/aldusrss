@@ -1,7 +1,7 @@
 {
   "name": "aldusrss",
   "private": true,
-  "version": "0.4.24",
+  "version": "0.4.25",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
     "android:build": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "android:build:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
     "android:bundle:release": "npm run android:sync && cd android && ./gradlew bundleRelease",
+    "android:release": "node scripts/bump-android-release.mjs",
     "linux:appimage": "npm run build && electron-builder --linux AppImage"
   },
   "main": "electron/main.cjs",
