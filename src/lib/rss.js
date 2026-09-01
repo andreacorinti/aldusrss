@@ -1,4 +1,5 @@
 import { stripHtml } from "./format";
+import { assignSection } from "./classify";
 
 // Proxy CORS pubblici di fallback, provati in parallelo (vedi
 // fetchTextWithFallback) finché uno risponde. Nessuno è garantito: sono
@@ -307,4 +308,18 @@ export async function discoverFeedUrl(pageUrl) {
   } catch {
     return null;
   }
+}
+
+// Scarica, fa il parsing e classifica per sezione un feed in un solo passo:
+// la sequenza usata ovunque nell'app abbia bisogno di dati pronti da mostrare
+// (refresh iniziale, pull-to-refresh, aggiunta di una fonte), non solo del
+// solo XML grezzo che restituisce parseFeed da solo.
+export async function loadFeedData(url, sectionHint) {
+  const xml = await fetchTextWithFallback(url);
+  const parsed = parseFeed(xml);
+  const articles = parsed.articles.map((a) => ({ ...a, section: assignSection(a, sectionHint) }));
+  return {
+    feedMeta: { title: parsed.title, description: parsed.description, link: parsed.link },
+    articles,
+  };
 }
