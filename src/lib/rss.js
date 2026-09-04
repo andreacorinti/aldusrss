@@ -57,6 +57,37 @@ async function fetchWithTimeout(url) {
 // un byte UTF-8 valido da solo, quindi diventa "�" ovunque compaia — trovato
 // testando con tutti i default (agosto 2026). Serve leggere i byte grezzi e
 // decodificarli con l'encoding giusto.
+// L'header/prologo di Il Messaggero dichiara ISO-8859-1, ma il byte reale per
+// un apostrofo tipografico è 0x92 — assegnato in Windows-1252 a "'" (U+2019),
+// mentre in ISO-8859-1 "puro" quel byte è un carattere di controllo C1 non
+// stampabile (U+0092), che il font renderizza come "?" (segnalato
+// dall'utente su un titolo con "l'Italia" → "l?Italia"). Gli standard web
+// (WHATWG Encoding Standard) impongono di trattare ISO-8859-1 come
+// Windows-1252 per questo motivo, ma il TextDecoder di questo runtime non fa
+// quel remapping per i byte 0x80-0x9F (verificato: decode(0x92) restituisce
+// U+0092 invece di U+2019, sia con label "iso-8859-1" che "windows-1252") —
+// quindi va fatto a mano.
+const WINDOWS_1252_C1_OVERRIDES = {
+  0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x0192, 0x84: 0x201e, 0x85: 0x2026,
+  0x86: 0x2020, 0x87: 0x2021, 0x88: 0x02c6, 0x89: 0x2030, 0x8a: 0x0160,
+  0x8b: 0x2039, 0x8c: 0x0152, 0x8e: 0x017d, 0x91: 0x2018, 0x92: 0x2019,
+  0x93: 0x201c, 0x94: 0x201d, 0x95: 0x2022, 0x96: 0x2013, 0x97: 0x2014,
+  0x98: 0x02dc, 0x99: 0x2122, 0x9a: 0x0161, 0x9b: 0x203a, 0x9c: 0x0153,
+  0x9e: 0x017e, 0x9f: 0x0178,
+};
+
+export function isLatin1Family(charset) {
+  return /^(iso-?8859-?1|latin1|windows-?1252|cp-?1252|x-cp1252)$/i.test(charset.trim());
+}
+
+export function decodeWindows1252(buffer) {
+  let out = "";
+  for (const byte of new Uint8Array(buffer)) {
+    out += String.fromCodePoint(WINDOWS_1252_C1_OVERRIDES[byte] ?? byte);
+  }
+  return out;
+}
+
 function detectCharset(buffer, contentType) {
   const headerMatch = /charset=([^;]+)/i.exec(contentType || "");
   if (headerMatch) return headerMatch[1].trim().replace(/['"]/g, "");
@@ -74,6 +105,7 @@ async function fetchOk(url) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buffer = await res.arrayBuffer();
   const charset = detectCharset(buffer, res.headers.get("content-type"));
+  if (isLatin1Family(charset)) return decodeWindows1252(buffer);
   try {
     return new TextDecoder(charset).decode(buffer);
   } catch {

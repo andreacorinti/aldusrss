@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFeed } from "./rss";
+import { parseFeed, decodeWindows1252, isLatin1Family } from "./rss";
 
 function rss(itemsXml) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -172,5 +172,33 @@ describe("parseFeed error handling", () => {
 
   it("throws when the document is neither RSS nor Atom", () => {
     expect(() => parseFeed("<html><body>not a feed</body></html>")).toThrow(/non riconosciuto/);
+  });
+});
+
+describe("isLatin1Family", () => {
+  it("recognizes ISO-8859-1 / Windows-1252 charset labels regardless of case/hyphenation", () => {
+    for (const label of ["ISO-8859-1", "iso8859-1", "latin1", "windows-1252", "cp-1252", "x-cp1252"]) {
+      expect(isLatin1Family(label)).toBe(true);
+    }
+  });
+
+  it("does not match unrelated charsets", () => {
+    expect(isLatin1Family("utf-8")).toBe(false);
+    expect(isLatin1Family("windows-1251")).toBe(false);
+  });
+});
+
+describe("decodeWindows1252", () => {
+  it("maps the Windows-1252 smart-quote/dash range instead of leaving raw C1 control codes", () => {
+    // Titolo Il Messaggero reale: "...l'Italia" con apostrofo tipografico
+    // (byte 0x92), dichiarato come ISO-8859-1 ma da trattare come
+    // Windows-1252 — altrimenti 0x92 decodifica a U+0092 (invisibile/"?").
+    const bytes = new Uint8Array([0x6c, 0x92, 0x49, 0x74, 0x61, 0x6c, 0x69, 0x61]); // "l" 0x92 "Italia"
+    expect(decodeWindows1252(bytes)).toBe("l’Italia");
+  });
+
+  it("still decodes plain ISO-8859-1 bytes (e.g. è, «, ») unchanged", () => {
+    const bytes = new Uint8Array([0x63, 0x61, 0x66, 0x66, 0xe8, 0x20, 0xab, 0xbb]); // "caff" è " " « »
+    expect(decodeWindows1252(bytes)).toBe("caffè «»");
   });
 });
