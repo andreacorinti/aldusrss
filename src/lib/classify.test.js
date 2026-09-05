@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assignSection, scoreArticle, isFresh, composeArticles } from "./classify";
+import { assignSection, scoreArticle, isFresh, hasRecentArticle, composeArticles } from "./classify";
 import { DEFAULT_SECTION_ID } from "./sections";
 
 describe("assignSection", () => {
@@ -75,6 +75,23 @@ describe("isFresh", () => {
 
   it("is false when the date can't be parsed", () => {
     expect(isFresh({ pubDate: "garbage" })).toBe(false);
+  });
+});
+
+describe("hasRecentArticle", () => {
+  it("is true for a source that only publishes weekly (past the 5-day isFresh window)", () => {
+    const articles = [{ pubDate: new Date(Date.now() - 6 * 24 * 3600000).toUTCString() }];
+    expect(hasRecentArticle(articles)).toBe(true);
+  });
+
+  it("is false once every article is older than the 90-day window", () => {
+    const articles = [{ pubDate: new Date(Date.now() - 100 * 24 * 3600000).toUTCString() }];
+    expect(hasRecentArticle(articles)).toBe(false);
+  });
+
+  it("is false for an empty list or unparseable dates", () => {
+    expect(hasRecentArticle([])).toBe(false);
+    expect(hasRecentArticle([{ pubDate: "garbage" }])).toBe(false);
   });
 });
 

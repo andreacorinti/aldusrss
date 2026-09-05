@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { Rss, Plus, X, Loader2, AlertTriangle, ExternalLink, ChevronUp, ChevronDown, Upload } from "lucide-react";
 import { CURATED_PACKS } from "../lib/curatedFeeds";
 import { searchPublishers } from "../lib/publisherSearch";
-import { isFresh } from "../lib/classify";
+import { hasRecentArticle } from "../lib/classify";
 import { normalizeUrl } from "../lib/url";
 import { t } from "../lib/i18n";
 
@@ -140,7 +140,7 @@ export function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAd
                       <AlertTriangle size={11} /> {t(lang, "statusStale")}
                     </span>
                   )}
-                  {s?.status === "ready" && Array.isArray(s.articles) && s.articles.length > 0 && !s.articles.some(isFresh) && (
+                  {s?.status === "ready" && Array.isArray(s.articles) && s.articles.length > 0 && !hasRecentArticle(s.articles) && (
                     <span className="text-[11px] flex items-center gap-1" style={{ color: chrome.warning }}>
                       <AlertTriangle size={11} /> {t(lang, "statusNoFreshContent")}
                     </span>

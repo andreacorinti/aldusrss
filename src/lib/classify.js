@@ -101,6 +101,24 @@ export function isFresh(article) {
   return (Date.now() - t) / 3600000 <= FRESH_WINDOW_HOURS;
 }
 
+// Soglia per l'avviso "nessun articolo recente" nella scheda Feed —
+// deliberatamente molto più larga di FRESH_WINDOW_HOURS: quella serve a
+// scartare articoli vecchi dal ranking di prima pagina (dove 5 giorni sono
+// già "vecchio"), questa a distinguere una fonte davvero abbandonata da una
+// che pubblica solo di rado (settimanale, bisettimanale...). Con la finestra
+// di 5 giorni l'avviso scattava anche per testate ferme da una settimana,
+// troppo poco per giustificare "puoi rimuovere questa fonte" (segnalato
+// dall'utente).
+const STALE_SOURCE_WINDOW_HOURS = 90 * 24;
+
+export function hasRecentArticle(articles) {
+  return articles.some((a) => {
+    const t = parseDate(a.pubDate);
+    if (Number.isNaN(t)) return false;
+    return (Date.now() - t) / 3600000 <= STALE_SOURCE_WINDOW_HOURS;
+  });
+}
+
 // `diversify` limita quante ne può piazzare una singola fonte in totale
 // (hero+secondaria+in breve insieme): senza, una fonte molto prolifica può
 // monopolizzare Prima Pagina, rendendola indistinguibile dalla sezione
