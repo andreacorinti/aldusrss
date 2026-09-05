@@ -289,21 +289,35 @@ async function tryCommonFeedPaths(pageUrl) {
 }
 
 async function discoverFromExactUrl(pageUrl) {
-  const html = await fetchTextWithFallback(pageUrl);
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const links = Array.from(doc.querySelectorAll('link[rel="alternate"]')).filter((el) => {
-    const type = (el.getAttribute("type") || "").toLowerCase();
-    return type.includes("rss") || type.includes("atom");
-  });
-  for (const el of links) {
-    const href = el.getAttribute("href");
-    if (!href) continue;
-    try {
-      return new URL(href, pageUrl).href;
-    } catch {
-      // href malformato, prova il prossimo candidato
+  // La home può essere irraggiungibile (CORS, timeout, pagina pesante) anche
+  // quando il feed stesso è raggiungibile benissimo: prima un fetch fallito
+  // della sola home faceva fallire subito tutta l'autodiscovery, senza mai
+  // arrivare a provare i percorsi comuni sotto (segnalato dall'utente su
+  // angrymetalguy.com: il tag <link rel="alternate"> in home dichiara
+  // correttamente /feed/, ma non serve a niente se la home non si riesce
+  // proprio a scaricare).
+  let fromLinkTag = null;
+  try {
+    const html = await fetchTextWithFallback(pageUrl);
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const links = Array.from(doc.querySelectorAll('link[rel="alternate"]')).filter((el) => {
+      const type = (el.getAttribute("type") || "").toLowerCase();
+      return type.includes("rss") || type.includes("atom");
+    });
+    for (const el of links) {
+      const href = el.getAttribute("href");
+      if (!href) continue;
+      try {
+        fromLinkTag = new URL(href, pageUrl).href;
+        break;
+      } catch {
+        // href malformato, prova il prossimo candidato
+      }
     }
+  } catch {
+    // vedi commento sopra: si ripiega comunque sui percorsi comuni
   }
+  if (fromLinkTag) return fromLinkTag;
   const common = await tryCommonFeedPaths(pageUrl);
   if (common) return common;
   throw new Error("nessun feed trovato su questa variante");

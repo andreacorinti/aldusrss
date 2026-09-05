@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parseFeed, decodeWindows1252, isLatin1Family } from "./rss";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { parseFeed, decodeWindows1252, isLatin1Family, discoverFeedUrl } from "./rss";
 
 function rss(itemsXml) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -200,5 +200,39 @@ describe("decodeWindows1252", () => {
   it("still decodes plain ISO-8859-1 bytes (e.g. è, «, ») unchanged", () => {
     const bytes = new Uint8Array([0x63, 0x61, 0x66, 0x66, 0xe8, 0x20, 0xab, 0xbb]); // "caff" è " " « »
     expect(decodeWindows1252(bytes)).toBe("caffè «»");
+  });
+});
+
+describe("discoverFeedUrl", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function fakeXmlResponse(text) {
+    return {
+      ok: true,
+      headers: { get: () => "application/xml; charset=utf-8" },
+      arrayBuffer: async () => new TextEncoder().encode(text).buffer,
+    };
+  }
+
+  const rssXml =
+    '<?xml version="1.0"?><rss version="2.0"><channel><title>T</title>' +
+    '<item><title>A</title><link>https://example.com/a</link></item></channel></rss>';
+
+  it("falls back to common feed paths (e.g. /feed) when the homepage itself can't be fetched", async () => {
+    // Riproduce angrymetalguy.com: la home è irraggiungibile dal browser
+    // (bloccata da CORS/anti-bot) ma il feed a un percorso comune sì.
+    const pageUrl = "https://www.example.com";
+    const feedUrl = "https://www.example.com/feed";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url) => {
+        if (String(url) === feedUrl) return Promise.resolve(fakeXmlResponse(rssXml));
+        return Promise.reject(new Error("network fail"));
+      })
+    );
+    const found = await discoverFeedUrl(pageUrl);
+    expect(found).toBe(feedUrl);
   });
 });
