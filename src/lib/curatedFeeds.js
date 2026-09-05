@@ -74,6 +74,27 @@ export const CURATED_PACKS = [
       { id: "bbc-business", url: "https://feeds.bbci.co.uk/news/business/rss.xml", label: "BBC Business", weight: 1, sectionHint: "economia" },
       { id: "bbc-technology", url: "https://feeds.bbci.co.uk/news/technology/rss.xml", label: "BBC Technology", weight: 1, sectionHint: "tecnologia" },
       { id: "the-verge", url: "https://www.theverge.com/rss/index.xml", label: "The Verge", weight: 1, sectionHint: "tecnologia" },
+      // Le cinque sotto arrivano dai bookmark pubblici dell'utente
+      // (andreacorinti.com/bookmarks), verificate una per una via curl
+      // (settembre 2026): esclusi i blog personali monoautore dell'elenco
+      // (contenuto troppo saltuario o non in tema testata/rivista), tenute
+      // solo le fonti editoriali con pubblicazione regolare e feed
+      // funzionante. Scartate dallo stesso elenco: Angry Metal Guy (il sito
+      // dichiara correttamente /feed/ ma è dietro una protezione Cloudflare
+      // che blocca anche l'unico proxy CORS rimasto, 403 sia diretto che via
+      // proxy — non risolvibile lato client), SadNES City (il parametro
+      // ?feed=rss2 restituisce la pagina HTML normale, non un feed reale) e
+      // Old Games Italia (XML malformato, articoli fermi al 2023).
+      //
+      // /feed/ di itsfoss.com reindirizza a questo dominio dedicato (stesso
+      // salto cross-domain già visto con Everyeye): puntare già alla
+      // destinazione evita il salto. Ha pure l'header CORS proprio (non
+      // dipende dal proxy).
+      { id: "itsfoss", url: "https://feed.itsfoss.com/", label: "It's FOSS", weight: 1, sectionHint: "tecnologia" },
+      { id: "freecodecamp", url: "https://www.freecodecamp.org/news/rss/", label: "freeCodeCamp", weight: 1, sectionHint: "tecnologia" },
+      { id: "eff", url: "https://www.eff.org/rss/updates.xml", label: "EFF Deeplinks", weight: 1, sectionHint: "tecnologia" },
+      { id: "progressive-subway", url: "https://theprogressivesubway.com/feed/", label: "The Progressive Subway", weight: 1, sectionHint: "cultura" },
+      { id: "internet-archive-blog", url: "https://blog.archive.org/feed/", label: "Internet Archive Blog", weight: 1, sectionHint: "cultura" },
     ],
   },
   {
