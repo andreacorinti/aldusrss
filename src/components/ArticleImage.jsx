@@ -23,7 +23,7 @@ export function ArticleImage({ src, seed, label, className, style, fontSize = "2
     setBroken(false);
   }
   if (src && !broken) {
-    return <img src={src} alt="" className={className} style={style} onError={() => setBroken(true)} />;
+    return <img src={src} alt="" loading="lazy" className={className} style={style} onError={() => setBroken(true)} />;
   }
   return (
     <div

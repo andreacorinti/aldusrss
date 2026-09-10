@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useLayoutEffect, useRef } from "react";
 import { ChevronUp, ChevronDown, GripVertical } from "lucide-react";
 import { t } from "../lib/i18n";
 
@@ -30,9 +30,18 @@ export function ReorderableSectionsList({ sectionOrder, hiddenSections, onToggle
   const dragRef = useRef(null);
   const prevRectsRef = useRef({});
 
-  useEffect(() => {
-    if (!draggingId) setOrder(sectionOrder);
-  }, [sectionOrder, draggingId]);
+  // `order` è una copia locale ottimistica di `sectionOrder`, aggiornata al
+  // volo durante il trascinamento senza aspettare il giro completo verso
+  // App.jsx e ritorno. Quando `sectionOrder` cambia da fuori (frecce su/giù,
+  // che aggiornano solo il genitore) va comunque risincronizzata: adeguata
+  // qui durante il render invece che in un useEffect, così React rifà subito
+  // il render con lo stato aggiornato invece di committare un frame con
+  // l'ordine vecchio e poi correggerlo un istante dopo nell'effetto.
+  const [prevSyncedOrder, setPrevSyncedOrder] = useState(sectionOrder);
+  if (sectionOrder !== prevSyncedOrder && !draggingId) {
+    setPrevSyncedOrder(sectionOrder);
+    setOrder(sectionOrder);
+  }
 
   // FLIP: le righe che cambiano posizione perché ne è stata trascinata
   // un'altra scivolano al posto nuovo invece di saltarci di colpo.

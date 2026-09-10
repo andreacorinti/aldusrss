@@ -114,44 +114,88 @@ export function saveFeedList(list) {
   }
 }
 
-export function loadCache() {
+// Specchio in memoria della cache su disco: senza, ogni singola fonte che
+// finisce di scaricare (refresh iniziale, fino a REFRESH_CONCURRENCY=6 in
+// parallelo, ~40+ fonti totali fra default+pacchetti curati) rifaceva un
+// JSON.parse dell'INTERA cache salvata solo per leggerla, per poi
+// ri-serializzarla e riscriverla per intero anche solo per aggiungere
+// un'unica fonte — un lavoro che cresce ad ogni fonte completata (la cache
+// accumulata dalle fonti già finite) ripetuto decine di volte per singolo
+// refresh, bloccando il thread principale ad ogni chiamata (localStorage è
+// sincrono). Tenerla in memoria dopo il primo caricamento elimina i parse
+// ripetuti; la scrittura su disco resta comunque necessaria ma viene
+// raggruppata (vedi scheduleFlush) invece di una per fonte.
+let cacheMirror = null;
+
+function ensureCacheLoaded() {
+  if (cacheMirror !== null) return cacheMirror;
   try {
     const raw = localStorage.getItem(CACHE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    cacheMirror = raw ? JSON.parse(raw) : {};
   } catch {
-    return {};
+    cacheMirror = {};
   }
+  return cacheMirror;
 }
 
-export function saveSourceCache(id, data) {
+// Le fonti finiscono di scaricare a raffica (fino a 6 insieme): raggruppare
+// le scritture su disco in un'unica chiamata per raffica invece di una per
+// fonte taglia drasticamente il numero di localStorage.setItem durante un
+// refresh completo, senza perdere nulla — lo specchio in memoria è già
+// aggiornato subito, solo il salvataggio su disco è ritardato.
+const FLUSH_DELAY_MS = 400;
+let flushTimer = null;
+
+function flushCacheNow() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  if (cacheMirror === null) return;
   try {
-    const cache = loadCache();
-    cache[id] = { ...data, fetchedAt: Date.now() };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheMirror));
   } catch {
     // ignora: la cache è solo un fallback, non è critica
   }
 }
 
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(flushCacheNow, FLUSH_DELAY_MS);
+}
+
+// L'app può essere chiusa (mobile) o la scheda nascosta (desktop/browser)
+// prima che il timer di raggruppamento scada: senza un flush a quel punto,
+// l'ultima raffica di fonti scaricate poco prima di chiudere rischiava di
+// non finire mai su disco.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushCacheNow();
+  });
+}
+
+export function loadCache() {
+  return ensureCacheLoaded();
+}
+
+export function saveSourceCache(id, data) {
+  const cache = ensureCacheLoaded();
+  cache[id] = { ...data, fetchedAt: Date.now() };
+  scheduleFlush();
+}
+
 export function removeSourceCache(id) {
-  try {
-    const cache = loadCache();
-    delete cache[id];
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch {
-    // ignora
-  }
+  const cache = ensureCacheLoaded();
+  delete cache[id];
+  scheduleFlush();
 }
 
 // Usata dal pulsante "Svuota cache" in Impostazioni: rimuove tutti gli
 // articoli salvati (forza un refresh completo da zero) senza toccare
 // l'elenco dei feed dell'utente, le preferenze o l'ordine delle sezioni.
 export function clearAllSourceCache() {
-  try {
-    localStorage.removeItem(CACHE_KEY);
-  } catch {
-    // ignora
-  }
+  cacheMirror = {};
+  flushCacheNow();
 }
 
 export function loadHiddenSections() {

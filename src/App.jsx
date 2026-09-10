@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Rss, Newspaper, Settings2 } from "lucide-react";
@@ -30,8 +30,15 @@ import { SectionTabs } from "./components/SectionTabs";
 import { PullToRefresh } from "./components/PullToRefresh";
 import { FrontPage } from "./components/FrontPage";
 import { ArticleView } from "./components/ArticleView";
-import { FeedsScreen } from "./components/FeedsScreen";
-import { SettingsScreen } from "./components/SettingsScreen";
+
+// Caricate solo al primo accesso alle schede Feed/Impostazioni (tab di
+// partenza è sempre "front"): tengono fuori dal bundle iniziale dati e
+// componenti usati solo lì (pacchetti curati in curatedFeeds.js, ricerca
+// testate in publisherSearch.js, drag&drop sezioni in
+// ReorderableSectionsList.jsx), che altrimenti venivano scaricati e
+// interpretati anche da chi apre l'app e resta solo su Prima Pagina.
+const FeedsScreen = lazy(() => import("./components/FeedsScreen").then((m) => ({ default: m.FeedsScreen })));
+const SettingsScreen = lazy(() => import("./components/SettingsScreen").then((m) => ({ default: m.SettingsScreen })));
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500;1,9..144,700&family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
@@ -573,23 +580,27 @@ export default function App() {
 
           {tab === "feeds" && (
             <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
-              <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onAddPack={addFeedsBulk} onRemovePack={removeFeedsBulk} onImportOpml={importOpml} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
+              <Suspense fallback={null}>
+                <FeedsScreen feedList={feedList} sources={sources} onToggle={toggleFeed} onRemove={removeFeed} onAdd={addFeed} onAddPack={addFeedsBulk} onRemovePack={removeFeedsBulk} onImportOpml={importOpml} onWeightChange={changeWeight} chrome={chrome} lang={lang} />
+              </Suspense>
             </div>
           )}
 
           {tab === "settings" && (
             <div className="flex-1 overflow-y-auto" style={{ backgroundColor: chrome.screenBg }}>
-              <SettingsScreen
-                hiddenSections={hiddenSections}
-                onToggleSection={toggleSectionHidden}
-                sectionOrder={sectionOrder}
-                onReorderSections={reorderSections}
-                darkMode={darkMode}
-                onToggleDarkMode={toggleDarkMode}
-                onClearCache={clearCache}
-                chrome={chrome}
-                lang={lang}
-              />
+              <Suspense fallback={null}>
+                <SettingsScreen
+                  hiddenSections={hiddenSections}
+                  onToggleSection={toggleSectionHidden}
+                  sectionOrder={sectionOrder}
+                  onReorderSections={reorderSections}
+                  darkMode={darkMode}
+                  onToggleDarkMode={toggleDarkMode}
+                  onClearCache={clearCache}
+                  chrome={chrome}
+                  lang={lang}
+                />
+              </Suspense>
             </div>
           )}
         </ErrorBoundary>
