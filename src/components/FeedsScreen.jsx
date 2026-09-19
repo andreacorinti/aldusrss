@@ -113,6 +113,77 @@ export function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAd
       <p className="text-[12.5px] mt-1 mb-4" style={{ color: chrome.ink, opacity: 0.6, fontFamily: "'Inter', sans-serif" }}>
         {t(lang, "feedsSubtitle")}
       </p>
+
+      {/* Spostato in cima (segnalato dal tester Tony): è l'azione più cercata
+          in questa schermata, prima toccava scorrere oltre l'intero elenco
+          fonti + "Scopri altre fonti" + import OPML per trovarla. */}
+      <div className="mb-4">
+        {adding ? (
+          <form onSubmit={handleSubmit} className="p-3 rounded-lg border border-dashed" style={{ borderColor: chrome.divider }}>
+            <input
+              autoFocus
+              type="text"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder={t(lang, "feedUrlPlaceholder")}
+              className="w-full text-[13px] px-2.5 py-2 rounded-md outline-none"
+              style={{ backgroundColor: chrome.card, color: chrome.ink, border: `1px solid ${chrome.divider}` }}
+            />
+            {suggestions.length > 0 && (
+              <div className="mt-1.5 rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.divider}` }}>
+                {suggestions.map((entry, i) => (
+                  <button
+                    key={entry.url}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleSelectSuggestion(entry)}
+                    className="w-full text-left px-2.5 py-2 text-[13px] flex items-center gap-2"
+                    style={{
+                      backgroundColor: chrome.card,
+                      color: chrome.ink,
+                      opacity: submitting ? 0.5 : 1,
+                      borderTop: i === 0 ? "none" : `1px solid ${chrome.divider}`,
+                    }}
+                  >
+                    <Rss size={13} style={{ opacity: 0.5 }} />
+                    {entry.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="mt-1.5 text-[11px]" style={{ color: chrome.ink, opacity: 0.5 }}>{t(lang, "feedAddHint")}</p>
+            {addError && <p className="mt-1.5 text-[11.5px]" style={{ color: chrome.danger }}>{addError}</p>}
+            <div className="mt-2 flex gap-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 py-2 rounded-md text-[12.5px] font-medium flex items-center justify-center gap-1.5"
+                style={{ backgroundColor: chrome.ink, color: chrome.screenBg, opacity: submitting ? 0.6 : 1 }}
+              >
+                {submitting && <Loader2 size={13} className="animate-spin" />}
+                {t(lang, "addButton")}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAdding(false); setAddError(""); setUrlInput(""); }}
+                className="px-3 py-2 rounded-md text-[12.5px] font-medium"
+                style={{ color: `${chrome.ink}AA`, border: `1px solid ${chrome.divider}` }}
+              >
+                {t(lang, "cancelButton")}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            onClick={() => setAdding(true)}
+            className="w-full py-3 rounded-lg text-[13px] font-medium border border-dashed flex items-center justify-center gap-1.5"
+            style={{ color: `${chrome.ink}AA`, borderColor: chrome.divider, fontFamily: "'Inter', sans-serif" }}
+          >
+            <Plus size={14} /> {t(lang, "addFeedButton")}
+          </button>
+        )}
+      </div>
+
       <div className="space-y-2.5">
         {feedList.map((f) => {
           const s = sources[f.id];
@@ -282,71 +353,6 @@ export function FeedsScreen({ feedList, sources, onToggle, onRemove, onAdd, onAd
             </p>
           )}
         </div>
-
-        {adding ? (
-          <form onSubmit={handleSubmit} className="p-3 rounded-lg border border-dashed" style={{ borderColor: chrome.divider }}>
-            <input
-              autoFocus
-              type="text"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder={t(lang, "feedUrlPlaceholder")}
-              className="w-full text-[13px] px-2.5 py-2 rounded-md outline-none"
-              style={{ backgroundColor: chrome.card, color: chrome.ink, border: `1px solid ${chrome.divider}` }}
-            />
-            {suggestions.length > 0 && (
-              <div className="mt-1.5 rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.divider}` }}>
-                {suggestions.map((entry, i) => (
-                  <button
-                    key={entry.url}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => handleSelectSuggestion(entry)}
-                    className="w-full text-left px-2.5 py-2 text-[13px] flex items-center gap-2"
-                    style={{
-                      backgroundColor: chrome.card,
-                      color: chrome.ink,
-                      opacity: submitting ? 0.5 : 1,
-                      borderTop: i === 0 ? "none" : `1px solid ${chrome.divider}`,
-                    }}
-                  >
-                    <Rss size={13} style={{ opacity: 0.5 }} />
-                    {entry.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            <p className="mt-1.5 text-[11px]" style={{ color: chrome.ink, opacity: 0.5 }}>{t(lang, "feedAddHint")}</p>
-            {addError && <p className="mt-1.5 text-[11.5px]" style={{ color: chrome.danger }}>{addError}</p>}
-            <div className="mt-2 flex gap-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 py-2 rounded-md text-[12.5px] font-medium flex items-center justify-center gap-1.5"
-                style={{ backgroundColor: chrome.ink, color: chrome.screenBg, opacity: submitting ? 0.6 : 1 }}
-              >
-                {submitting && <Loader2 size={13} className="animate-spin" />}
-                {t(lang, "addButton")}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAdding(false); setAddError(""); setUrlInput(""); }}
-                className="px-3 py-2 rounded-md text-[12.5px] font-medium"
-                style={{ color: `${chrome.ink}AA`, border: `1px solid ${chrome.divider}` }}
-              >
-                {t(lang, "cancelButton")}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button
-            onClick={() => setAdding(true)}
-            className="w-full mt-1 py-3 rounded-lg text-[13px] font-medium border border-dashed flex items-center justify-center gap-1.5"
-            style={{ color: `${chrome.ink}AA`, borderColor: chrome.divider, fontFamily: "'Inter', sans-serif" }}
-          >
-            <Plus size={14} /> {t(lang, "addFeedButton")}
-          </button>
-        )}
       </div>
 
       <div className="mt-4 text-center">
