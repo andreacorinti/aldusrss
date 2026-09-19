@@ -1,26 +1,25 @@
 import { stripHtml } from "./format";
 import { assignSection } from "./classify";
 
-// Proxy CORS pubblici di fallback, provati in parallelo (vedi
-// fetchTextWithFallback) finché uno risponde. Nessuno è garantito: sono
-// servizi di terzi best-effort, non un'infrastruttura nostra (vedi README,
-// sezione "Limiti noti").
+// Proxy CORS di fallback, provati in parallelo (vedi fetchTextWithFallback)
+// finché uno risponde.
 //
-// corsproxy.io tolto: da qualche tempo risponde 401 "A valid API key is
-// required" su ogni richiesta, qualunque sia la fonte (verificato con curl,
-// agosto 2026) — non un problema di una fonte specifica, il servizio è di
-// fatto morto per un uso senza chiave.
-//
-// allorigins.win tolto a sua volta: stress test su tutte le 40 fonti di
-// default+pacchetti curati (agosto 2026) — 3/40 richieste riuscite, e anche
-// quelle 3 in una media di 5s, sopra il timeout reale di 4s che l'app usa
-// per tentativo (FETCH_TIMEOUT_MS). Contribuiva zero volte utili pur
-// restando comunque una richiesta in volo per ogni fetch. Nessun altro
-// proxy pubblico gratuito provato come sostituto si è rivelato affidabile
-// (redirect verso domini estranei, 429, 500, timeout) — stessa sorte già
-// toccata a corsproxy.io. proxy.cors.sh resta l'unico proxy: nello stesso
-// stress test, 39/40 riuscite, ~470ms di media.
-const CORS_PROXIES = [(url) => `https://proxy.cors.sh/${url}`];
+// Storia (perché non è più un proxy pubblico anonimo): corsproxy.io tolto
+// ad agosto 2026 (risponde 401 "A valid API key is required" su ogni
+// richiesta). allorigins.win tolto subito dopo (3/40 richieste riuscite in
+// uno stress test sulle fonti di default+curate, oltre il timeout di 4s).
+// proxy.cors.sh — che li aveva sostituiti entrambi — è a sua volta sparito
+// senza preavviso (settembre 2026: il sottodominio non risolve più via DNS,
+// confermato con due resolver indipendenti). Tre proxy pubblici morti in un
+// mese: non è più un rischio accettabile appoggiarsi a un servizio
+// anonimo di terzi per una funzione centrale dell'app. Sostituito con un
+// Cloudflare Worker di proprietà del progetto (codice in
+// cloudflare-worker/proxy.js, piano gratuito, sotto il nostro controllo) —
+// stress test sulle 29 fonti di default+curate senza CORS proprio:
+// 29/29 riuscite, ~430ms di media (settembre 2026).
+const CORS_PROXIES = [
+  (url) => `https://aldusrss-cors-proxy.xabacadabra.workers.dev/?url=${encodeURIComponent(url)}`,
+];
 
 // Ridotto da 6000: con l'aggiunta di una fonte che incatena più tentativi in
 // sequenza (fetch diretto, poi autodiscovery, poi percorsi comuni) un
@@ -171,13 +170,19 @@ function extractImage(itemEl, descriptionHtml) {
 
 function parseRss(doc) {
   const channel = doc.querySelector("channel");
-  const title = firstTag(channel, ["title"]);
+  const title = stripHtml(firstTag(channel, ["title"]));
   const description = firstTag(channel, ["description"]);
   const link = firstTag(channel, ["link"]);
   const items = Array.from(channel.querySelectorAll("item"));
   const articles = items.map((item, i) => {
     const description = firstTag(item, ["content:encoded", "description"]);
-    const itemTitle = firstTag(item, ["title"]);
+    // stripHtml perché alcune fonti (es. HDblog) mandano il titolo con
+    // un'entità HTML codificata due volte (`&amp;#039;` nell'XML grezzo): il
+    // parser XML risolve solo il livello esterno, lasciando "&#039;"
+    // letterale nel testo — comparirebbe a schermo così com'è, invece
+    // dell'apostrofo, perché il titolo va a video come testo puro (JSX non
+    // decodifica entità HTML residue) (segnalato dall'utente).
+    const itemTitle = stripHtml(firstTag(item, ["title"]));
     const itemLink = firstTag(item, ["link"]);
     const guid = firstTag(item, ["guid"]) || itemLink || `${itemTitle}-${i}`;
     const categories = Array.from(item.getElementsByTagName("category"))
@@ -204,13 +209,13 @@ function parseRss(doc) {
 
 function parseAtom(doc) {
   const feedEl = doc.querySelector("feed");
-  const title = firstTag(feedEl, ["title"]);
+  const title = stripHtml(firstTag(feedEl, ["title"]));
   const description = firstTag(feedEl, ["subtitle"]);
   const feedLinkEl = feedEl.querySelector('link[rel="alternate"]') || feedEl.querySelector("link");
   const link = feedLinkEl ? feedLinkEl.getAttribute("href") : "";
   const entries = Array.from(feedEl.querySelectorAll("entry"));
   const articles = entries.map((entry, i) => {
-    const entryTitle = firstTag(entry, ["title"]);
+    const entryTitle = stripHtml(firstTag(entry, ["title"]));
     const linkEl = entry.querySelector('link[rel="alternate"]') || entry.querySelector("link");
     const entryLink = linkEl ? linkEl.getAttribute("href") : "";
     const description = firstTag(entry, ["content", "summary"]);

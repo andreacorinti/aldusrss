@@ -70,6 +70,17 @@ describe("parseFeed / RSS", () => {
     expect(parsed.articles[0].author).toBe("di R.I.T.");
   });
 
+  it("decodes a double-escaped HTML entity in the title (HDblog case)", () => {
+    const xml = rss(`
+      <item>
+        <title>L&amp;#039;impresa di Max Verstappen</title>
+        <link>https://example.com/a</link>
+      </item>
+    `);
+    const parsed = parseFeed(xml);
+    expect(parsed.articles[0].title).toBe("L'impresa di Max Verstappen");
+  });
+
   describe("extractImage", () => {
     it("uses an image enclosure when present", () => {
       const xml = rss(`

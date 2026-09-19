@@ -5,6 +5,7 @@ import { Rss, Newspaper, Settings2 } from "lucide-react";
 import { discoverFeedUrl, loadFeedData } from "./lib/rss";
 import { parseOpml } from "./lib/opml";
 import { composeArticles } from "./lib/classify";
+import { stabilizeComposed } from "./lib/stabilizeComposed";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID } from "./lib/templates";
 import { SECTIONS, SECTION_ORDER as DEFAULT_SECTION_ORDER, DEFAULT_SECTION_ID, FRONT_PAGE_ID } from "./lib/sections";
 import { resolveLanguage, t } from "./lib/i18n";
@@ -203,6 +204,12 @@ export default function App() {
   }, []);
 
   const refreshAllFeeds = useCallback(() => {
+    // A differenza del caricamento organico (dove le posizioni restano
+    // ferme, vedi stabilizeComposed.js), un refresh chiesto esplicitamente
+    // dall'utente (pull-to-refresh) deve poter rimescolare tutto: è lui
+    // stesso ad aspettarsi contenuto aggiornato, non un caricamento silenzioso
+    // in background mentre sta leggendo.
+    compositionStabilizerRef.current.clear();
     enqueueRefresh(feedList);
   }, [feedList, enqueueRefresh]);
 
@@ -455,10 +462,17 @@ export default function App() {
   // su Prima Pagina): l'hero di una sezione deve sapere di dover scavalcare
   // quello di Prima Pagina anche se l'utente apre direttamente Attualità
   // senza prima passare da lì.
-  const frontPageComposed = useMemo(
-    () => composeArticles(allArticles, sourceWeights, { diversify: true }),
-    [allArticles, sourceWeights]
-  );
+  // Una entry per vista (Prima Pagina + ciascuna sezione tematica) dentro una
+  // Map mutabile che sopravvive ai render: è quello che permette a
+  // stabilizeComposed di ricordare "cosa avevo già mostrato qui" da un
+  // render all'altro senza rientrare in un ciclo di render aggiuntivo (vedi
+  // stabilizeComposed.js per il motivo per cui esiste).
+  const compositionStabilizerRef = useRef(new Map());
+
+  const frontPageComposed = useMemo(() => {
+    const fresh = composeArticles(allArticles, sourceWeights, { diversify: true });
+    return stabilizeComposed(compositionStabilizerRef.current, FRONT_PAGE_ID, fresh);
+  }, [allArticles, sourceWeights]);
   const frontPageHeroIds = useMemo(
     () => new Set(frontPageComposed.hero ? [frontPageComposed.hero.id] : []),
     [frontPageComposed.hero]
@@ -483,7 +497,8 @@ export default function App() {
       };
     }
     const articles = allArticles.filter((a) => a.section === activeSection);
-    const composed = composeArticles(articles, sourceWeights, { diversify: false, excludeHeroIds: frontPageHeroIds });
+    const freshComposed = composeArticles(articles, sourceWeights, { diversify: false, excludeHeroIds: frontPageHeroIds });
+    const composed = stabilizeComposed(compositionStabilizerRef.current, activeSection, freshComposed);
     const sectionMeta = buildSectionMeta(activeSection);
     const template = resolveTemplate(TEMPLATES[sectionMeta.templateId] || TEMPLATES[DEFAULT_TEMPLATE_ID], darkMode);
     return {
